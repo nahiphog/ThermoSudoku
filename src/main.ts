@@ -2,11 +2,14 @@ import './style.css';
 import { blank, example, validatePuzzle, type Puzzle } from './puzzle';
 import { conflicts, type SolveResult } from './solver';
 import { gridImage } from './grid-image';
+import type { GeneratedPuzzle, GenerationProgress } from './generator';
+import { digitsOf } from './vendor/sudokui/board';
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
 let puzzle = example(), solution: number[] | null = null, revealed = false, selected = 0;
 let worker: Worker | null = null, busy: 'generate' | 'check' | 'solve' | null = null;
 let status = 'Ready to generate.', detail = 'Choose your puzzle options above the grid.';
+let report: GeneratedPuzzle | null = null, slide: number | null = null, progress: GenerationProgress | null = null;
 try {
   const saved = localStorage.getItem('thermo-studio-v1');
   if (saved) puzzle = validatePuzzle(JSON.parse(saved));
@@ -19,21 +22,34 @@ $('#app').innerHTML = `
   <section class="card settings-card" aria-label="Puzzle options">
     <div class="settings-heading"><h1>Puzzle options</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
     <div class="generation-options">
-      <label><input id="no-thermo-givens" type="checkbox"> No givens on thermometers</label>
-      <label><input id="symmetric-givens" type="checkbox"> Rotationally symmetric givens</label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
-      <label><input id="no-overlap" type="checkbox"> No overlapping or branching thermometers</label>
     </div>
-    <div class="generate-row"><p class="muted">Settings apply to the next generated puzzle. Symmetry is a 180° rotation. Each thermometer has at least 3 cells, including its bulb.</p><button id="generate" class="primary">Generate puzzle</button></div>
+    <div class="generate-row"><p class="muted">Draw at least 6 non-overlapping thermometers of 3+ cells. Fill them first, complete the grid, empty every thermometer, then dig 180° clue pairs until no more can be removed. The center is tested on its own.</p><button id="generate" class="primary">Generate puzzle</button></div>
   </section>
   <div class="workspace">
     <section class="board-panel" aria-label="Sudoku workspace">
       <div class="board-heading"><strong id="puzzle-title">Thermo Sudoku</strong><span id="view-label">Puzzle</span></div>
-      <div id="board" class="board" role="group" aria-label="Thermo Sudoku grid"><svg id="thermos" viewBox="0 0 900 900" aria-hidden="true"></svg><div id="cells" class="cells"></div></div>
+      <div id="board" class="board" role="group" aria-label="Thermo Sudoku grid"><svg id="thermos" class="thermo-overlay" viewBox="0 0 900 900" aria-hidden="true"></svg><div id="cells" class="cells"></div></div>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
     </section>
     <aside>
+      <section id="generation-report" class="card" hidden aria-label="Generation statistics">
+        <h2>Your generated puzzle</h2>
+        <dl class="stats"><div><dt>Givens</dt><dd id="stat-givens"></dd></div><div><dt>Thermometers</dt><dd id="stat-thermos"></dd></div><div><dt>Thermometer cells</dt><dd id="stat-occupied"></dd></div><div><dt>Generation time</dt><dd id="stat-time"></dd></div></dl>
+        <p id="dig-summary" class="muted"></p>
+        <h3 id="difficulty"></h3><p id="rating-summary" class="muted"></p>
+        <details><summary>How this estimate is calculated</summary><p class="muted">We sum the imported sudokUI technique scores, add 5 per thermometer-bound reduction and 1,000 per backtracking trial. The level uses the hardest technique and the imported score thresholds; any trial is Extreme. This is an engine-based estimate, not a calibrated human difficulty or an official HoDoKu rating.</p><p id="technique-summary" class="muted"></p></details>
+        <button id="walkthrough" class="outline full">View solution walkthrough</button>
+      </section>
+      <dialog id="walkthrough-panel" aria-label="Solution walkthrough"><div class="walk-layout"><div id="walk-board" class="board" role="group" aria-label="Walkthrough grid"></div><div class="walk-explanation">
+        <div class="walk-heading"><h2>Solution walkthrough</h2><button id="close-walkthrough" class="text-button" aria-label="Close walkthrough">✕</button></div>
+        <p id="slide-count" class="muted"></p><h3 id="slide-title"></h3><p id="slide-description" class="muted" aria-live="polite"></p>
+        <input id="slide-range" type="range" min="0" value="0" aria-label="Solution step">
+        <div class="button-pair"><button id="slide-prev" class="outline">Previous step</button><button id="slide-next" class="primary">Next step</button></div>
+        <div class="button-pair"><button id="slide-first" class="text-button">Starting puzzle</button><button id="slide-last" class="text-button">Completed grid</button></div>
+        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Trials and restored positions are explicitly labeled.</p></div></div>
+      </dialog>
       <section class="card solver-card"><h2>Puzzle check</h2><div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div><button id="check" class="outline full">Check puzzle</button><button id="cancel" class="text-button full" hidden>Cancel</button></section>
       <section class="rules"><div class="rules-icon">i</div><div><h3>The rules are simple.</h3><p id="variant-rules"></p><p class="rule-note">Thermometers can turn, including diagonally.</p></div></section>
     </aside>
@@ -52,32 +68,36 @@ const cells = Array.from({ length: 81 }, (_, i) => {
   $('#cells').append(b); return b;
 });
 const settings = {
-  'no-thermo-givens': 'noThermoGivens', 'symmetric-givens': 'symmetricGivens',
-  'symmetric-thermos': 'symmetricThermos', 'no-overlap': 'noOverlap',
+  'symmetric-thermos': 'symmetricThermos',
 } as const;
 function save() { try { localStorage.setItem('thermo-studio-v1', JSON.stringify(puzzle)); } catch { /* Storage is optional. */ } }
-function cancel() { worker?.terminate(); worker = null; busy = null; }
+function cancel() { worker?.terminate(); worker = null; busy = null; progress = null; }
 function message(title: string, body: string) { status = title; detail = body; }
 function replace(next: Puzzle) {
-  cancel(); puzzle = next; puzzle.values = [...puzzle.givens]; solution = null; revealed = false; save(); render();
+  cancel(); puzzle = next; puzzle.values = [...puzzle.givens]; solution = null; revealed = false; report = null; slide = null; save(); render();
 }
-const visibleValues = () => revealed && solution ? solution : puzzle.givens;
+const visibleValues = () => slide !== null && report ? report.analysis.frames[slide].values : revealed && solution ? solution : puzzle.givens;
 function render() {
   const values = visibleValues(), bad = conflicts({ ...puzzle, values });
+  const frame = slide !== null ? report?.analysis.frames[slide] : null;
   cells.forEach((b, i) => {
     b.classList.toggle('selected', i === selected); b.classList.toggle('given', !!puzzle.givens[i]); b.classList.toggle('conflict', bad.has(i));
     b.tabIndex = i === selected ? 0 : -1;
     b.setAttribute('aria-label', `Row ${Math.floor(i / 9) + 1}, column ${i % 9 + 1}, ${values[i] || 'empty'}${puzzle.givens[i] ? ', given' : ''}`);
     b.setAttribute('aria-pressed', String(i === selected));
-    b.innerHTML = values[i] ? `<span class="digit">${values[i]}</span>` : '';
+    b.classList.toggle('step-placement', !!frame?.placements.some(p => p.cell === i));
+    b.classList.toggle('step-elimination', !!frame?.eliminations.some(p => p.cell === i));
+    const removed = frame?.eliminations.filter(p => p.cell === i).map(p => p.digit) ?? [];
+    const remaining = frame ? digitsOf(frame.candidates[i]) : [];
+    b.innerHTML = values[i] ? `<span class="digit">${values[i]}</span>` : frame ? `<span class="pencil">${Array.from({ length: 9 }, (_, d) => `<span class="${removed.includes(d + 1) ? 'removed-candidate' : ''}">${removed.includes(d + 1) || remaining.includes(d + 1) ? d + 1 : ''}</span>`).join('')}</span>` : '';
   });
   const point = (c: number) => `${c % 9 * 100 + 50},${Math.floor(c / 9) * 100 + 50}`;
   $('#thermos').innerHTML = puzzle.thermos.map(t => `<g><polyline points="${t.map(point).join(' ')}"/><circle cx="${t[0] % 9 * 100 + 50}" cy="${Math.floor(t[0] / 9) * 100 + 50}" r="34"/></g>`).join('');
   $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
   $('#puzzle-title').textContent = puzzle.variant === 'slow' ? 'Slow Thermo Sudoku' : 'Thermo Sudoku';
-  $('#view-label').textContent = revealed ? 'Solution' : 'Puzzle';
-  $('#status-title').textContent = busy === 'generate' ? 'Generating your puzzle…' : busy ? 'Checking every constraint…' : status;
-  $('#status-detail').textContent = busy ? 'Looking for exactly one solution with your selected rules.' : detail;
+  $('#view-label').textContent = slide !== null ? 'Walkthrough' : revealed ? 'Solution' : 'Puzzle';
+  $('#status-title').textContent = progress ? `Step ${progress.stage} of 6 · Attempt ${progress.attempt}` : busy === 'generate' ? 'Generating your puzzle…' : busy ? 'Checking every constraint…' : status;
+  $('#status-detail').textContent = progress?.text ?? (busy ? 'Looking for exactly one solution with your selected rules.' : detail);
   for (const [id, key] of Object.entries(settings)) { $<HTMLInputElement>(`#${id}`).checked = puzzle[key]; $<HTMLInputElement>(`#${id}`).disabled = !!busy; }
   for (const v of ['thermo', 'slow'] as const) {
     const b = $<HTMLButtonElement>(`#${v}-variant`); b.classList.toggle('active', puzzle.variant === v); b.setAttribute('aria-pressed', String(puzzle.variant === v)); b.disabled = !!busy;
@@ -88,6 +108,29 @@ function render() {
   $('#reveal').textContent = revealed ? 'Hide solution' : 'Reveal solution';
   $('#reveal').setAttribute('aria-pressed', String(revealed));
   $('#cancel').hidden = !busy;
+  $<HTMLButtonElement>('#copy-image').disabled = !!busy || slide !== null;
+  $('#generation-report').hidden = !report;
+  if (slide === null || !report) { $<HTMLDialogElement>('#walkthrough-panel').close(); $('#walk-board').innerHTML = ''; }
+  if (report) {
+    const { stats: s, analysis: a } = report;
+    $('#stat-givens').textContent = String(s.givens); $('#stat-thermos').textContent = String(s.thermometers);
+    $('#stat-occupied').textContent = String(s.thermoCells); $('#stat-time').textContent = `${(s.elapsedMs / 1000).toFixed(2)} s`;
+    $('#dig-summary').textContent = `${s.attempts} layout attempt(s). Tested ${s.pairsTested} clue orbits and removed ${s.pairsRemoved}. No remaining rotational pair can be removed while keeping a unique solution.`;
+    $('#difficulty').textContent = `${a.level} · ${a.score} points (estimated)`;
+    $('#rating-summary').textContent = `Hardest step: ${a.hardest}. ${a.guesses} backtracking trial(s), ${a.backtracks} rollback(s).`;
+    $('#technique-summary').textContent = Object.entries(a.techniques).map(([name, count]) => `${name}: ${count}`).join(' · ');
+    $<HTMLButtonElement>('#walkthrough').disabled = !!busy;
+    if (frame && slide !== null) {
+      $('#walk-board').innerHTML = $('#board').innerHTML.replaceAll('id="thermos"', 'id="walk-thermos"').replaceAll('id="cells"', 'id="walk-cells"');
+      document.querySelectorAll<HTMLButtonElement>('#walk-board .cell').forEach(b => { b.tabIndex = -1; b.classList.remove('selected'); });
+
+      $('#slide-count').textContent = `Slide ${slide + 1} of ${a.frames.length}`; $('#slide-title').textContent = frame.title;
+      $('#slide-description').textContent = frame.description;
+      const range = $<HTMLInputElement>('#slide-range'); range.max = String(a.frames.length - 1); range.value = String(slide);
+      range.setAttribute('aria-valuetext', `Slide ${slide + 1}: ${frame.title}`);
+      $<HTMLButtonElement>('#slide-prev').disabled = slide === 0; $<HTMLButtonElement>('#slide-next').disabled = slide === a.frames.length - 1;
+    }
+  }
 }
 for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).onchange = e => {
   puzzle[key] = (e.target as HTMLInputElement).checked; save(); message('Generation options updated.', 'These settings apply when you generate your next puzzle.'); render();
@@ -95,7 +138,7 @@ for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).
 for (const v of ['thermo', 'slow'] as const) $(`#${v}-variant`).onclick = () => {
   if (puzzle.variant === v) return;
   if (v === 'thermo' && puzzle.thermos.some(t => t.length > 9)) { message('This path is too long for strict Thermo.', 'Start a new puzzle before switching variants.'); render(); return; }
-  puzzle.variant = v; solution = null; revealed = false; save(); message('Variant updated.', 'Generate a puzzle with the selected rules.'); render();
+  puzzle.variant = v; solution = null; revealed = false; report = null; slide = null; save(); message('Variant updated.', 'Generate a puzzle with the selected rules.'); render();
 };
 window.addEventListener('keydown', e => {
   if (document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -108,11 +151,13 @@ function run(type: 'check' | 'solve' | 'generate') {
   busy = type; render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
   worker.onerror = () => { cancel(); message('Could not complete the request.', 'Please try again.'); render(); };
   worker.onmessage = event => {
+    if (event.data.progress) { progress = event.data.progress; render(); return; }
     cancel();
     if (event.data.error) { message('Could not complete the request.', event.data.error); render(); return; }
     if (type === 'generate') {
-      replace(validatePuzzle(event.data.result));
-      message('A new puzzle, with one solution.', 'Your generation settings are satisfied. Copy the grid or reveal its solution below.');
+      const generated = event.data.result as GeneratedPuzzle;
+      replace(validatePuzzle(generated.puzzle)); report = generated; solution = generated.solution;
+      message('A new puzzle, with one solution.', 'All six stages are complete. View the statistics and solution walkthrough.');
     } else {
       const r = event.data.result as SolveResult;
       if (r.exhausted && r.solutions.length === 1) {
@@ -135,10 +180,19 @@ $('#confirm-no').onclick = () => $<HTMLDialogElement>('#confirm').close();
 $('#generate').onclick = () => confirmChange('Generate a new puzzle?', () => run('generate'));
 $('#check').onclick = () => run('check');
 $('#reveal').onclick = () => {
+  slide = null;
   if (revealed) { revealed = false; render(); }
   else if (solution) { revealed = true; render(); }
   else run('solve');
 };
+$('#walkthrough').onclick = () => { if (report) { slide = 0; revealed = false; render(); $<HTMLDialogElement>('#walkthrough-panel').showModal(); } };
+$('#close-walkthrough').onclick = () => { slide = null; render(); };
+$('#walkthrough-panel').addEventListener('cancel', e => { e.preventDefault(); slide = null; render(); });
+$('#slide-prev').onclick = () => { if (slide !== null && slide > 0) { slide--; render(); } };
+$('#slide-next').onclick = () => { if (report && slide !== null && slide < report.analysis.frames.length - 1) { slide++; render(); } };
+$('#slide-first').onclick = () => { slide = 0; render(); };
+$('#slide-last').onclick = () => { if (report) { slide = report.analysis.frames.length - 1; render(); } };
+$<HTMLInputElement>('#slide-range').oninput = e => { slide = Number((e.target as HTMLInputElement).value); render(); };
 $('#cancel').onclick = () => { cancel(); message('Canceled.', 'Your current puzzle is unchanged.'); render(); };
 $('#new').onclick = () => confirmChange('Start a new puzzle?', () => {
   const next = blank(puzzle.variant, puzzle.noThermoGivens);

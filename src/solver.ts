@@ -18,6 +18,14 @@ const finders: ((g: Grid) => Step | null)[] = [
   (g: Grid) => findTurbotFamily(g, 'SKYSCRAPER'), (g: Grid) => findTurbotFamily(g, 'TWO_STRING_KITE'), findEmptyRectangle,
   ...[2, 3, 4].flatMap(n => [(g: Grid) => findFinnedFish(g, n, false), (g: Grid) => findFinnedFish(g, n, true)])
 ];
+export function nextLogicalStep(g: Grid): Step | null {
+  for (const finder of finders) { const step = finder(g); if (step) return step; }
+  return null;
+}
+export function applyLogicalStep(g: Grid, step: Step): void {
+  for (const { cell, digit } of step.eliminations) g.cands[cell] &= ~bit(digit);
+  for (const { cell, digit } of step.placements) setValue(g, cell, digit);
+}
 const domain = (g: Grid, c: number) => g.values[c] ? bit(g.values[c]) : g.cands[c];
 export function conflicts(p: Puzzle): Set<number> {
   const bad = new Set<number>();
@@ -89,9 +97,10 @@ export function solve(p: Puzzle, budgetMs = 5000): SolveResult {
     result.nodes++;
     while (true) {
       if (!propagate(g, p.thermos, p.variant)) return;
-      const single = findNakedSingle(g) ?? findHiddenSingle(g);
-      if (!single) break;
-      for (const { cell, digit } of single.placements) setValue(g, cell, digit);
+      if (performance.now() >= deadline) { result.exhausted = false; return; }
+      const step = nextLogicalStep(g);
+      if (!step) break;
+      applyLogicalStep(g, step);
     }
     if (isSolved(g)) { if (p.variant !== 'slow' || hasRepeatedStep(g.values, p.thermos)) result.solutions.push([...g.values]); return; }
     let cell = -1, count = 10;

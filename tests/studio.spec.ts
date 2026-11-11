@@ -1,9 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-const optionLabels = ['No givens on thermometers', 'Rotationally symmetric givens', 'Rotationally symmetric thermometers', 'No overlapping or branching thermometers'];
+test.setTimeout(90000);
+const optionLabels = ['Rotationally symmetric thermometers'];
 async function generate(page: Page) {
   await page.getByRole('button', { name: 'Generate puzzle', exact: true }).click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page.locator('#status-title')).toHaveText('A new puzzle, with one solution.', { timeout: 15000 });
+  await expect(page.locator('#status-title')).toHaveText('A new puzzle, with one solution.', { timeout: 35000 });
 }
 async function exported(page: Page) {
   await page.getByRole('button', { name: 'Export', exact: false }).click();
@@ -49,22 +50,54 @@ test('generates symmetric puzzles and reveals/hides without modifying the puzzle
     await page.reload(); await expect(page.locator('.cell')).toHaveText(before);
   }
 });
-test('independent options persist and mobile layout stays within the screen', async ({ page }) => {
+test('thermometer symmetry preference persists and the six-stage report fits mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
-  await page.getByLabel('Rotationally symmetric givens', { exact: true }).uncheck();
-  await expect(page.getByLabel('Rotationally symmetric thermometers', { exact: true })).toBeChecked();
-  await page.getByLabel('No overlapping or branching thermometers', { exact: true }).uncheck();
-  await page.reload();
-  await expect(page.getByLabel('Rotationally symmetric givens', { exact: true })).not.toBeChecked();
-  await expect(page.getByLabel('Rotationally symmetric thermometers', { exact: true })).toBeChecked();
-  await expect(page.getByLabel('No overlapping or branching thermometers', { exact: true })).not.toBeChecked();
-  await page.getByLabel('Rotationally symmetric thermometers', { exact: true }).uncheck();
+  await page.getByLabel('Rotationally symmetric thermometers', { exact: true }).uncheck(); await page.reload();
+  await expect(page.getByLabel('Rotationally symmetric thermometers', { exact: true })).not.toBeChecked();
   await generate(page);
-  expect(await exported(page)).toMatchObject({ symmetricGivens: false, symmetricThermos: false, noOverlap: false });
+  const p = await exported(page);
+  expect(p).toMatchObject({ symmetricGivens: true, symmetricThermos: false, noOverlap: true, noThermoGivens: true });
+  expect(p.thermos.length).toBeGreaterThanOrEqual(6);
+  await expect(page.locator('#stat-givens')).toHaveText(String(p.givens.filter(Boolean).length));
+  await expect(page.locator('#stat-thermos')).toHaveText(String(p.thermos.length));
+  await expect(page.locator('#stat-occupied')).toHaveText(String(new Set(p.thermos.flat()).size));
+  await expect(page.locator('#stat-time')).toContainText('s');
+  await expect(page.locator('#difficulty')).toContainText('estimated');
+  await expect(page.locator('#dig-summary')).toContainText('No remaining rotational pair');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const options = await page.locator('.settings-card').boundingBox(), board = await page.locator('#board').boundingBox();
   expect(options!.y + options!.height).toBeLessThan(board!.y);
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
+});
+test('walkthrough navigates from original puzzle to full solution without editing it', async ({ page }) => {
+  await page.goto('/'); await generate(page);
+  const original = await exported(page), before = await page.locator('.cell').allTextContents();
+  await page.getByRole('button', { name: 'View solution walkthrough' }).click();
+  await expect(page.locator('#slide-title')).toHaveText('Starting puzzle');
+  await expect(page.locator('#slide-prev')).toBeDisabled();
+  await expect(page.locator('#walk-board .pencil').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await expect(page.locator('#slide-count')).toContainText('Slide 2');
+  await page.getByRole('button', { name: 'Previous step' }).click();
+  await expect(page.locator('#slide-title')).toHaveText('Starting puzzle');
+  await page.getByRole('button', { name: 'Completed grid', exact: true }).click();
+  await expect(page.locator('#slide-title')).toHaveText('Puzzle complete');
+  await expect(page.locator('#filled')).toContainText('81 / 81');
+  await expect(page.locator('#slide-next')).toBeDisabled();
+  await page.getByLabel('Solution step', { exact: true }).fill('1');
+  await expect(page.locator('#slide-count')).toContainText('Slide 2');
+  await page.locator('#walkthrough-panel').screenshot({ path: 'test-results/walkthrough.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await expect(page.locator('#slide-count')).toContainText('Slide 3');
+  expect(await page.locator('#walkthrough-panel').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const walkGrid = await page.locator('#walk-board').boundingBox(), lastCell = await page.locator('#walk-board .cell').last().boundingBox();
+  expect(lastCell!.y + lastCell!.height).toBeLessThanOrEqual(walkGrid!.y + walkGrid!.height);
+  await page.locator('#walkthrough-panel').screenshot({ path: 'test-results/walkthrough-mobile.png' });
+  await page.getByRole('button', { name: 'Close walkthrough' }).click();
+  expect(await exported(page)).toEqual(original);
+  await expect(page.locator('.cell')).toHaveText(before);
+  await page.screenshot({ path: 'test-results/report.png', fullPage: true });
 });
 test('copies a real PNG and uses a download when clipboard access fails', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']); await page.goto('/'); await generate(page);

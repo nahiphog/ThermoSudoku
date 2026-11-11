@@ -27,18 +27,18 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 - **Thermo / Slow Thermo:** choose strictly increasing or nondecreasing paths.
   Slow Thermo requires at least one equal consecutive pair on a thermometer
   in the completed grid. Normal Sudoku rules still apply to those cells.
-- **Generate puzzle:** creates and verifies a puzzle with exactly one solution.
-  By default, no thermometer cell (including bulbs) contains a given.
-  Disable **No givens on thermometers** to allow those givens. This setting
-  applies to generation, not imported puzzles.
-- **Rotationally symmetric givens / thermometers:** independent generation
-  settings, both enabled by default. Clue *positions* are symmetric under a
-  180° rotation, not their values. Every thermometer has a rotated counterpart
-  with the bulb in the corresponding position and the same path direction.
-- **No overlapping or branching thermometers:** enabled by default. Prevents
+- **Generate puzzle:** follows the six-stage layout-first process below.
+  No thermometer cell (including bulbs) contains a given; clue positions are
+  rotationally symmetric and digging runs to completion without a clue target.
+- **Rotationally symmetric thermometers:** an optional layout setting, enabled
+  by default. Every thermometer has a rotated counterpart with the bulb in the
+  corresponding position and the same path direction. Digit values need not
+  be symmetric. Clue-position symmetry is mandatory in the prescribed workflow.
+- **No overlapping or branching thermometers:** mandatory for now. Prevents
   shared cells, shared bulbs, branching and diagonal crossings, including
-  self-crossings. Turning it off allows overlaps; it does not require them.
-- All generated thermometers have at least three cells including the bulb.
+  self-crossings. Legacy exclusion/overlap/clue-symmetry toggles no longer override
+  the new generation workflow; imported puzzles remain readable.
+- At least six thermometers are generated, each with at least three cells including the bulb.
   `MIN_THERMO_LENGTH` in `src/puzzle.ts` controls this generation minimum.
 - **Check puzzle:** checks uniqueness using the original givens and paths.
 - **Reveal / hide solution:** below the grid, reveals only a verified unique
@@ -49,32 +49,67 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   images are unavailable or access is denied, downloads the same PNG instead.
 - JSON import/export includes givens, entries, and ordered thermometer paths.
   The current puzzle is also saved in local storage when available.
+- **Generation report:** shows givens, thermometer count, distinct occupied
+  thermometer cells, elapsed time including retries and analysis, attempts,
+  and digging counts. Reports and walkthroughs belong to the current generation
+  session; exported puzzle JSON remains independent of solution data.
+- **Solution walkthrough:** Previous/Next, first/last, and a slider replay the
+  actual solve. Candidate eliminations and placements are highlighted. Failed
+  backtracking trials, contradictions, and restored positions are included.
+  Close it to return to the puzzle. Image copying is disabled in walkthrough mode.
 
 ## Solver design and provenance
 
 Actual unmodified modules from [sudokUI](https://github.com/AImenes/sudokUI)
 are vendored under `src/vendor/sudokui`. See THIRD_PARTY_NOTICES.md for the
-pinned commit and imported modules. The retained hint engine includes full houses,
+pinned commit and imported modules. The logical solver includes full houses,
 naked/hidden singles, locked candidates, naked/hidden subsets (2–4), basic,
 finned and sashimi fish (2–4), XY/XYZ/W wings, skyscrapers, two-string kites,
 and empty rectangles. This is a curated subset, not its entire catalogue.
 
 `src/solver.ts` adds directed inequality arc consistency, including overlapping
 thermometers, and a minimum-candidate search that validates the thermo
-constraints at every node. Search counts up to two solutions, runs in a
-dedicated worker, and stops after five seconds. A timed-out search never
+constraints at every node. It tries every supported logical finder before
+branching with backtracking. Search counts up to two solutions, runs in a
+dedicated worker, and normally stops after five seconds (generation supplies
+its remaining overall budget instead). A timed-out search never
 claims uniqueness or impossibility. Cancel terminates the worker. Standard
 Sudoku uniqueness techniques are not enabled for the variant.
 
-The generator randomizes a completed Sudoku, builds valid paths, and removes
-clues while preserving a proven unique solution. Symmetric thermometers are
-selected as rotated pairs, including their bulb orientation. When clue symmetry
-is enabled, both forced thermometer-cell exclusions and optional clue removals
-operate on rotational pairs. Slow generation includes an
-equal step in its source solution. Mandatory thermometer-clue removal happens
-before uniqueness testing; unsuccessful attempts are discarded. Generation
-runs in the worker, can be canceled, and has a ten-second budget. A failure
-leaves the current board unchanged.
+### Six-stage generation
+
+1. Draw at least six disjoint thermometer paths without consulting any digits.
+2. Randomized candidate-based backtracking fills only thermometer cells. Slow
+   Thermo assignments must include an equal consecutive pair. Failure restarts
+   with a new layout.
+3. Keep the thermometer digits fixed and randomly fill the other cells. Failure
+   restarts with a new layout, rather than changing the fixed thermo assignment.
+4. Empty every thermometer cell (and rotational counterparts if the paths are
+   asymmetric). Prove uniqueness with logical deductions and backtracking;
+   multiple solutions cause a fresh layout attempt.
+5. Shuffle and test every remaining rotational clue orbit, removing it only
+   after proving uniqueness. The center is a singleton orbit. No clue-count
+   floor applies. A failed removal never needs retesting: removing other givens
+   cannot shrink the set of solutions. The result is minimal with respect to
+   these pair removals, not necessarily globally minimum in clue count.
+6. Record statistics, calculate a difficulty estimate, and produce a complete
+   solution replay. Display only the completed result.
+
+Generation has a 30-second overall budget and can be canceled. Individual
+filling attempts have shorter budgets and retry from step 1. A timeout during
+uniqueness checking, digging, or walkthrough recording fails the request; it
+never treats an untested removal as impossible or returns an unfinished puzzle.
+The current board is retained on failure.
+
+### Difficulty estimate
+
+`src/walkthrough.ts` sums imported sudokUI technique weights, adds 5 for each
+thermometer reduction round and 1,000 for each backtracking trial, including
+failed trials. The highest technique level is promoted using the imported
+total-score thresholds. Any trial makes the level Extreme. The UI exposes the
+score, level, hardest technique, technique counts, trial count, and rollbacks.
+This is an engine-dependent estimate, not an official HoDoKu rating or a
+calibrated measure of human difficulty.
 All puzzle processing runs locally. Fonts use Google Fonts with system fallbacks.
 
 ## JSON format
