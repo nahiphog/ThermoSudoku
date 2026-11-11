@@ -1,3 +1,4 @@
+import { renderTechniqueTallies } from './technique-tallies';
 import { parseImport, type ImportResult } from './import-check';
 import type { Puzzle } from './puzzle';
 import type { Frame } from './walkthrough';
@@ -55,8 +56,9 @@ export function mountImportPage() {
       target.innerHTML = `<div class="import-columns"><section class="card"><h2>Completed grid</h2><div id="import-completed" class="board" aria-label="Completed grid">${board(p, result.solutions[0])}</div></section><section class="card"><h2>Solution walkthrough</h2><div id="import-walk-content"></div></section></div>`;
       if (!result.analysis) { $('#import-walk-content').textContent = `The solution is verified, but the walkthrough could not finish. ${result.analysisError ?? ''} Check again to retry.`; return; }
       const analysis = result.analysis; let index = 0;
-      $('#import-walk-content').innerHTML = `<p id="import-rating"></p><div id="import-walk-board" class="board" aria-label="Walkthrough grid"></div><p id="import-step-count"></p><h3 id="import-step-title"></h3><p id="import-step-description" aria-live="polite"></p><input id="import-step-range" type="range" min="0" max="${analysis.frames.length - 1}" value="0" aria-label="Imported solution step"><div class="button-pair"><button id="import-prev" class="outline">Previous step</button><button id="import-next" class="primary">Next step</button></div><div class="button-pair"><button id="import-first" class="text-button">Starting puzzle</button><button id="import-last" class="text-button">Completed step</button></div><p class="muted">Purple: placed digit. Red crossed marks: eliminated candidates. Trials and rollbacks are labeled.</p>`;
+      $('#import-walk-content').innerHTML = `<p id="import-rating"></p><div id="import-tallies"></div><div id="import-walk-board" class="board" aria-label="Walkthrough grid"></div><p id="import-step-count"></p><h3 id="import-step-title"></h3><p id="import-step-description" aria-live="polite"></p><input id="import-step-range" type="range" min="0" max="${analysis.frames.length - 1}" value="0" aria-label="Imported solution step"><div class="button-pair"><button id="import-prev" class="outline">Previous step</button><button id="import-next" class="primary">Next step</button></div><div class="button-pair"><button id="import-first" class="text-button">Starting puzzle</button><button id="import-last" class="text-button">Completed step</button></div><p class="muted">Purple: placed digit. Red crossed marks: eliminated candidates. Trials and rollbacks are labeled.</p>`;
       $('#import-rating').textContent = `Difficulty rating: ${analysis.score} (estimated). Hardest technique: ${analysis.hardest}.`;
+      renderTechniqueTallies($('#import-tallies'), analysis);
       const renderStep = () => {
         const frame = analysis.frames[index]; $('#import-walk-board').innerHTML = board(p, frame.values, [], frame);
         $('#import-step-count').textContent = `Step ${index + 1} of ${analysis.frames.length}`;

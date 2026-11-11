@@ -111,8 +111,11 @@ test('walkthrough navigates from original puzzle to full solution without editin
   const original = await exported(page), before = await page.locator('.cell').allTextContents();
   await page.getByRole('button', { name: 'View solution walkthrough' }).click();
   await expect(page.locator('#slide-title')).toHaveText('Starting puzzle');
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await expect(page.locator('#technique-tallies tbody tr').first()).toBeVisible();
+  const tallyBefore = await page.locator('#technique-tallies').textContent();
   await expect(page.locator('#slide-prev')).toBeDisabled();
-  await expect(page.locator('#walk-board .pencil').first()).toBeVisible();
+  await expect(page.locator('#board .pencil').first()).toBeVisible();
   await page.getByRole('button', { name: 'Next step' }).click();
   await expect(page.locator('#slide-count')).toContainText('Slide 2');
   await page.getByRole('button', { name: 'Previous step' }).click();
@@ -128,10 +131,12 @@ test('walkthrough navigates from original puzzle to full solution without editin
   await page.getByRole('button', { name: 'Next step' }).click();
   await expect(page.locator('#slide-count')).toContainText('Slide 3');
   expect(await page.locator('#walkthrough-panel').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-  const walkGrid = await page.locator('#walk-board').boundingBox(), lastCell = await page.locator('#walk-board .cell').last().boundingBox();
+  const walkGrid = await page.locator('#board').boundingBox(), lastCell = await page.locator('#board .cell').last().boundingBox();
   expect(lastCell!.y + lastCell!.height).toBeLessThanOrEqual(walkGrid!.y + walkGrid!.height);
   await page.locator('#walkthrough-panel').screenshot({ path: 'test-results/walkthrough-mobile.png' });
+  expect(await page.locator('#technique-tallies').textContent()).toBe(tallyBefore);
   await page.getByRole('button', { name: 'Close walkthrough' }).click();
+  await expect(page.locator('#walkthrough-panel')).not.toBeVisible();
   expect(await exported(page)).toEqual(original);
   await expect(page.locator('.cell')).toHaveText(before);
   await page.screenshot({ path: 'test-results/report.png', fullPage: true });

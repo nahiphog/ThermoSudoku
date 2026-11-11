@@ -1,4 +1,5 @@
 import './style.css';
+import { renderTechniqueTallies } from './technique-tallies';
 import { mountImportPage } from './import-page';
 import { encodePuzzle, decodePuzzle } from './puzzle-string';
 import { blank, example, validatePuzzle, generationError, type Puzzle } from './puzzle';
@@ -36,6 +37,14 @@ $('#app').innerHTML = `
     <section class="board-panel" aria-label="Sudoku workspace">
       <dl id="generation-stats" class="stats" hidden aria-label="Generation statistics"><div><dt>Givens</dt><dd id="stat-givens"></dd></div><div><dt>Thermometers</dt><dd id="stat-thermos"></dd></div><div><dt>Thermometer cells</dt><dd id="stat-occupied"></dd></div><div><dt>Generation time</dt><dd id="stat-time"></dd></div><div><dt>Difficulty rating</dt><dd id="stat-score"></dd></div><div><dt>Hardest technique used</dt><dd id="stat-hardest"></dd></div></dl>
       <div id="board" class="board" role="group" aria-label="Thermo Sudoku grid"><svg id="thermos" class="thermo-overlay" viewBox="0 0 900 900" aria-hidden="true"></svg><div id="cells" class="cells"></div></div>
+      <section id="walkthrough-panel" hidden aria-label="Solution walkthrough"><div class="walk-explanation">
+        <div class="walk-heading"><h2>Solution walkthrough</h2><button id="close-walkthrough" class="text-button" aria-label="Close walkthrough">Return to puzzle</button></div>
+        <p id="slide-count" class="muted"></p><h3 id="slide-title"></h3><p id="slide-description" class="muted" aria-live="polite"></p>
+        <input id="slide-range" type="range" min="0" value="0" aria-label="Solution step">
+        <div class="button-pair"><button id="slide-prev" class="outline">Previous step</button><button id="slide-next" class="primary">Next step</button></div>
+        <div class="button-pair"><button id="slide-first" class="text-button">Starting puzzle</button><button id="slide-last" class="text-button">Completed grid</button></div>
+        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
+      </section>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
       <button id="copy-string" class="outline full">Copy puzzle string</button>
@@ -49,14 +58,7 @@ $('#app').innerHTML = `
         <details><summary>How this estimate is calculated</summary><p class="muted">We sum the imported sudokUI technique scores, add 5 per thermometer-bound reduction and 1,000 per backtracking trial. The level uses the hardest technique and the imported score thresholds; any trial is Extreme. This is an engine-based estimate, not a calibrated human difficulty or an official HoDoKu rating.</p><p id="technique-summary" class="muted"></p></details>
         <button id="walkthrough" class="outline full">View solution walkthrough</button>
       </section>
-      <dialog id="walkthrough-panel" aria-label="Solution walkthrough"><div class="walk-layout"><div id="walk-board" class="board" role="group" aria-label="Walkthrough grid"></div><div class="walk-explanation">
-        <div class="walk-heading"><h2>Solution walkthrough</h2><button id="close-walkthrough" class="text-button" aria-label="Close walkthrough">✕</button></div>
-        <p id="slide-count" class="muted"></p><h3 id="slide-title"></h3><p id="slide-description" class="muted" aria-live="polite"></p>
-        <input id="slide-range" type="range" min="0" value="0" aria-label="Solution step">
-        <div class="button-pair"><button id="slide-prev" class="outline">Previous step</button><button id="slide-next" class="primary">Next step</button></div>
-        <div class="button-pair"><button id="slide-first" class="text-button">Starting puzzle</button><button id="slide-last" class="text-button">Completed grid</button></div>
-        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Trials and restored positions are explicitly labeled.</p></div></div>
-      </dialog>
+
       <section class="card solver-card"><h2>Puzzle check</h2><div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div><button id="check" class="outline full">Check puzzle</button><button id="cancel" class="text-button full" hidden>Cancel</button></section>
       <section class="rules"><div class="rules-icon">i</div><div><h3>The rules are simple.</h3><p id="variant-rules"></p><p class="rule-note">Thermometers can turn, including diagonally.</p></div></section>
     </aside>
@@ -123,7 +125,7 @@ function render() {
   for (const [id, key] of Object.entries(numericSettings)) {
     const select = $<HTMLSelectElement>(`#${id}`); select.value = String(puzzle[key] ?? (key === 'thermometerCount' ? 6 : 3)); select.disabled = !!busy;
   }
-  if (slide === null || !report) { $<HTMLDialogElement>('#walkthrough-panel').close(); $('#walk-board').innerHTML = ''; }
+  $('#walkthrough-panel').hidden = slide === null || !report;
   if (report) {
     const { stats: s, analysis: a } = report;
     $('#stat-givens').textContent = String(s.givens); $('#stat-thermos').textContent = String(s.thermometers);
@@ -135,8 +137,7 @@ function render() {
     $('#technique-summary').textContent = Object.entries(a.techniques).map(([name, count]) => `${name}: ${count}`).join(' · ');
     $<HTMLButtonElement>('#walkthrough').disabled = !!busy;
     if (frame && slide !== null) {
-      $('#walk-board').innerHTML = $('#board').innerHTML.replaceAll('id="thermos"', 'id="walk-thermos"').replaceAll('id="cells"', 'id="walk-cells"');
-      document.querySelectorAll<HTMLButtonElement>('#walk-board .cell').forEach(b => { b.tabIndex = -1; b.classList.remove('selected'); });
+      renderTechniqueTallies($('#technique-tallies'), a);
 
       $('#slide-count').textContent = `Slide ${slide + 1} of ${a.frames.length}`; $('#slide-title').textContent = frame.title;
       $('#slide-description').textContent = frame.description;
@@ -202,9 +203,8 @@ $('#reveal').onclick = () => {
   else if (solution) { revealed = true; render(); }
   else run('solve');
 };
-$('#walkthrough').onclick = () => { if (report) { slide = 0; revealed = false; render(); $<HTMLDialogElement>('#walkthrough-panel').showModal(); } };
+$('#walkthrough').onclick = () => { if (report) { slide = 0; revealed = false; render(); $('#board').scrollIntoView({ behavior: 'smooth', block: 'start' }); } };
 $('#close-walkthrough').onclick = () => { slide = null; render(); };
-$('#walkthrough-panel').addEventListener('cancel', e => { e.preventDefault(); slide = null; render(); });
 $('#slide-prev').onclick = () => { if (slide !== null && slide > 0) { slide--; render(); } };
 $('#slide-next').onclick = () => { if (report && slide !== null && slide < report.analysis.frames.length - 1) { slide++; render(); } };
 $('#slide-first').onclick = () => { slide = 0; render(); };

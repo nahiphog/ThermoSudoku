@@ -64,10 +64,14 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   numeric difficulty rating, and hardest technique used. Attempts and digging counts
   appear in the report. Reports and walkthroughs belong to the current generation
   session; exported puzzle JSON remains independent of solution data.
-- **Solution walkthrough:** Previous/Next, first/last, and a slider replay the
+- **Solution walkthrough:** displays directly in the maker's existing grid with
+  controls underneath, without a popup. Previous/Next, first/last, and a slider replay the
   actual solve. Candidate eliminations and placements are highlighted. Failed
   backtracking trials, contradictions, and restored positions are included.
-  Close it to return to the puzzle. Image copying is disabled in walkthrough mode.
+  Choose Return to puzzle to restore the original clues. Image copying is disabled
+  in walkthrough mode. A visible technique tally lists each technique and its total
+  uses across the entire solve, including failed trials; rollbacks are also reported.
+  Imported puzzle walkthroughs show the same tallies.
 
 ## Import grid page
 

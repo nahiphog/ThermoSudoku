@@ -12,11 +12,14 @@ test('import page shows a unique completion alongside a navigable walkthrough', 
   await expect(page.locator('#import-completed polyline')).toHaveCount(1);
   await expect(page.locator('#import-walk-board polyline')).toHaveCount(1);
   await expect(page.locator('#import-step-title')).toHaveText('Starting puzzle');
+  await expect(page.locator('#import-tallies tbody tr').first()).toBeVisible();
+  const tallies = await page.locator('#import-tallies').textContent();
   await page.locator('#import-next').click();
   await expect(page.locator('#import-step-count')).toContainText('Step 2');
   await page.locator('#import-last').click();
   await expect(page.locator('#import-step-title')).toHaveText('Puzzle complete');
   await expect(page.locator('#import-walk-board .digit')).toHaveText(completed);
+  expect(await page.locator('#import-tallies').textContent()).toBe(tallies);
   await page.screenshot({ path: 'test-results/import-unique.png', fullPage: true });
   // Removing all 1s and 2s leaves at least two completions, swapping those digits.
   await page.locator('#import-text').fill(completed.map(d => d === '1' || d === '2' ? '0' : d).join(''));
