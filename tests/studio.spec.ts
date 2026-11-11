@@ -1,6 +1,22 @@
 import { expect, test, type Page } from '@playwright/test';
 test.setTimeout(90000);
 const optionLabels = ['Rotationally symmetric thermometers'];
+test('logical-only preference persists and generates without Brute force', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#logical-only')).not.toBeChecked();
+  await page.locator('#logical-only').check(); await page.reload();
+  await expect(page.locator('#logical-only')).toBeChecked();
+  await generate(page);
+  expect((await exported(page)).logicalOnly).toBe(true);
+  await expect(page.locator('#rating-summary')).toContainText('0 Brute force use(s)');
+  await page.locator('#walkthrough').click();
+  await expect(page.locator('#technique-tallies')).not.toContainText('Brute force');
+  await page.locator('#slide-last').click();
+  await expect(page.locator('#filled')).toContainText('81 / 81');
+  await page.locator('#close-walkthrough').click();
+  await page.locator('#logical-only').uncheck(); await page.reload();
+  await expect(page.locator('#logical-only')).not.toBeChecked();
+});
 test('custom generation options, statistics above grid, and clipboard string round trip', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/');

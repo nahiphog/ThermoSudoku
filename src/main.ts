@@ -28,6 +28,7 @@ $('#app').innerHTML = `
     <div class="generation-options">
       <label>Number of thermometers <select id="thermometer-count">${Array.from({length:30}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}</select></label>
       <label>Minimum thermometer length <select id="min-thermo-length">${Array.from({length:10}, (_, i) => `<option value="${i+2}">${i+2} cells</option>`).join('')}</select></label>
+      <label><input id="logical-only" type="checkbox"> Logical techniques only (no Brute force)</label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
     </div>
     <div class="generate-row"><button id="generate" class="primary">Generate puzzle</button></div>
@@ -78,6 +79,7 @@ const cells = Array.from({ length: 81 }, (_, i) => {
 const numericSettings = { 'thermometer-count': 'thermometerCount', 'min-thermo-length': 'minThermoLength' } as const;
 const settings = {
   'symmetric-thermos': 'symmetricThermos',
+  'logical-only': 'logicalOnly',
 } as const;
 function save() { try { localStorage.setItem('thermo-studio-v1', JSON.stringify(puzzle)); } catch { /* Storage is optional. */ } }
 function cancel() { worker?.terminate(); worker = null; busy = null; progress = null; }
@@ -105,7 +107,7 @@ function render() {
   $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
   $('#status-title').textContent = progress ? `Step ${progress.stage} of 6 · Attempt ${progress.attempt}` : busy === 'generate' ? 'Generating your puzzle…' : busy ? 'Checking every constraint…' : status;
   $('#status-detail').textContent = progress?.text ?? (busy ? 'Looking for exactly one solution with your selected rules.' : detail);
-  for (const [id, key] of Object.entries(settings)) { $<HTMLInputElement>(`#${id}`).checked = puzzle[key]; $<HTMLInputElement>(`#${id}`).disabled = !!busy; }
+  for (const [id, key] of Object.entries(settings)) { $<HTMLInputElement>(`#${id}`).checked = !!puzzle[key]; $<HTMLInputElement>(`#${id}`).disabled = !!busy; }
   for (const v of ['thermo', 'slow'] as const) {
     const b = $<HTMLButtonElement>(`#${v}-variant`); b.classList.toggle('active', puzzle.variant === v); b.setAttribute('aria-pressed', String(puzzle.variant === v)); b.disabled = !!busy;
   }
@@ -210,7 +212,7 @@ $<HTMLInputElement>('#slide-range').oninput = e => { slide = Number((e.target as
 $('#cancel').onclick = () => { cancel(); message('Canceled.', 'Your current puzzle is unchanged.'); render(); };
 $('#new').onclick = () => confirmChange('Start a new puzzle?', () => {
   const next = blank(puzzle.variant, puzzle.noThermoGivens);
-  for (const key of Object.values(settings)) next[key] = puzzle[key];
+  for (const key of Object.values(settings)) next[key] = !!puzzle[key];
   next.thermometerCount = puzzle.thermometerCount; next.minThermoLength = puzzle.minThermoLength;
   replace(next); message('Ready to generate.', 'Choose your options and generate a puzzle.'); render();
 });

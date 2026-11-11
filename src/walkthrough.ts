@@ -9,7 +9,8 @@ export interface Analysis { frames: Frame[]; score: number; level: Level; hardes
 /** A replay of the actual solving process, including failed trials and rollback.
  * This is an estimate: upstream technique weights + 5 per thermo reduction +
  * 10000 per Brute force use. Trials always force Extreme, never masquerade as deductions. */
-export function analyze(p: Puzzle, budgetMs = 10000): Analysis {
+export class LogicalSolveStalled extends Error { constructor() { super('The supported logical techniques cannot complete this puzzle without Brute force.'); } }
+export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): Analysis {
   const result: Analysis = { frames: [], score: 0, level: 'Easy', hardest: 'None', guesses: 0, backtracks: 0, techniques: {} };
   const deadline = performance.now() + budgetMs;
   let hardestWeight = -1;
@@ -38,6 +39,7 @@ export function analyze(p: Puzzle, budgetMs = 10000): Analysis {
       const info = TECHS[step.tech]; credit(info.name, info.score, info.level);
       add(g, 'logic', info.name, step.description, step.placements, step.eliminations);
     }
+    if (!allowBruteForce) throw new LogicalSolveStalled();
     let cell = -1, count = 10;
     for (let c = 0; c < 81; c++) if (!g.values[c] && popcount(g.cands[c]) < count) { cell = c; count = popcount(g.cands[c]); }
     const digits = digitsOf(g.cands[cell]);

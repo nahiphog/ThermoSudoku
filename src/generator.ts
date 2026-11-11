@@ -1,7 +1,7 @@
 import { adjacent, blank, DEFAULT_GENERATION, hasRepeatedStep, generationError, MIN_THERMO_LENGTH, type GenerationOptions, type Puzzle, type Variant } from './puzzle';
 import { propagate, solve } from './solver';
 import { cloneGrid, digitsOf, emptyGrid, popcount, setValue, type Grid } from './vendor/sudokui/board';
-import { analyze, type Analysis } from './walkthrough';
+import { analyze, LogicalSolveStalled, type Analysis } from './walkthrough';
 
 function shuffle<T>(items: T[], random: () => number): T[] {
   const copy = [...items];
@@ -78,7 +78,7 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
     attempts++;
     progress({ stage: 1, attempt: attempts, text: `Drawing ${count} non-overlapping thermometers of ${minLength}+ cells.` });
     const paths = drawLayout(options.symmetricThermos, random, count, minLength, variant === 'thermo' ? 9 : 11); if (!paths) continue;
-    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths; p.thermometerCount = count; p.minThermoLength = minLength;
+    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths; p.thermometerCount = count; p.minThermoLength = minLength; p.logicalOnly = options.logicalOnly ?? false;
     const thermoCells = [...new Set(paths.flat())];
     progress({ stage: 2, attempt: attempts, text: 'Filling thermometer cells while obeying Sudoku and thermometer rules.' });
     const filledThermos = fillCells(emptyGrid(), p, thermoCells, random, Math.min(deadline, performance.now() + 600), true);
@@ -106,9 +106,17 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
       if (result.solutions.length === 1) pairsRemoved++;
       else orbit.forEach((i, j) => { p.givens[i] = p.values[i] = old[j]; });
     }
-    return { puzzle: p, solution, started, deadline, stats: { givens: p.givens.filter(Boolean).length, thermometers: paths.length, thermoCells: thermoCells.length, elapsedMs: performance.now() - started, attempts, pairsTested, pairsRemoved } };
+    let analysis: Analysis | undefined;
+    if (options.logicalOnly) {
+      progress({ stage: 6, attempt: attempts, text: 'Checking that logical techniques complete the puzzle without Brute force.' });
+      try { analysis = analyze(p, Math.max(0, deadline - performance.now()), false); }
+      catch (error) { if (error instanceof LogicalSolveStalled) continue; throw error; }
+    }
+    return { puzzle: p, solution, started, deadline, analysis, stats: { givens: p.givens.filter(Boolean).length, thermometers: paths.length, thermoCells: thermoCells.length, elapsedMs: performance.now() - started, attempts, pairsTested, pairsRemoved } };
   }
-  throw budgetError();
+  throw options.logicalOnly
+    ? new Error('Generation time limit reached before finding a unique puzzle solvable entirely with the supported logical techniques. Try again or disable Logical techniques only. Your current puzzle is unchanged.')
+    : budgetError();
 }
 
 // Legacy call signature retained; the prescribed workflow now mandates thermo
@@ -119,7 +127,7 @@ export function generate(variant: Variant, _noThermoGivens = true, random = Math
 export function generateDetailed(variant: Variant, options = DEFAULT_GENERATION, progress: Progress = () => {}, random = Math.random, budgetMs = 30000): GeneratedPuzzle {
   const result = pipeline(variant, random, budgetMs, options, progress);
   progress({ stage: 6, attempt: result.stats.attempts, text: 'Calculating difficulty and recording the complete solution walkthrough.' });
-  const analysis = analyze(result.puzzle, Math.max(0, result.deadline - performance.now()));
+  const analysis = result.analysis ?? analyze(result.puzzle, Math.max(0, result.deadline - performance.now()));
   if (analysis.frames.at(-1)!.values.some((d, c) => d !== result.solution[c])) throw new Error('Walkthrough did not match the verified solution.');
   result.stats.elapsedMs = performance.now() - result.started;
   return { puzzle: result.puzzle, solution: result.solution, stats: result.stats, analysis };

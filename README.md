@@ -30,6 +30,14 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 - **Generate puzzle:** follows the six-stage layout-first process below.
   No thermometer cell (including bulbs) contains a given; clue positions are
   rotationally symmetric and digging runs to completion without a clue target.
+- **Logical techniques only (no Brute force):** optional, off by default. After
+  complete uniqueness-based digging, the generator attempts a walkthrough using
+  only supported logical techniques and thermometer deductions. If it stalls,
+  generation restarts with a new layout within the same time budget. Accepted
+  puzzles have zero Brute force uses and a complete logical walkthrough. This
+  filter can take longer or time out; it never silently returns an unrestricted
+  puzzle. Construction and independent uniqueness verification may still use
+  backtracking internally. The preference persists locally and in JSON exports.
 - **Rotationally symmetric thermometers:** an optional layout setting, enabled
   by default. Every thermometer has a rotated counterpart with the bulb in the
   corresponding position and the same path direction. Digit values need not

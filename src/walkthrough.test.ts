@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { analyze } from './walkthrough';
+import { analyze, LogicalSolveStalled } from './walkthrough';
 import { blank } from './puzzle';
 import { solve } from './solver';
 import { TECHS } from './vendor/sudokui/ratings';
@@ -8,6 +8,7 @@ it('records actual backtracking trials and restored states on a hard puzzle', ()
   const p = blank();
   p.givens = [...'100007090030020008009600500005300900010080002600004000300000010040000007007000300'].map(Number);
   p.values = [...p.givens];
+  expect(() => analyze(p, 20000, false)).toThrow(LogicalSolveStalled);
   const a = analyze(p, 20000);
   expect(a.guesses).toBeGreaterThan(0); expect(a.backtracks).toBeGreaterThan(0); expect(a.level).toBe('Extreme');
   expect(a.techniques['Brute force']).toBe(a.guesses);
