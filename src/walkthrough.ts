@@ -54,7 +54,7 @@ export function analyze(p: Puzzle, budgetMs = 10000): Analysis {
   const grid = gridFromValues(p.givens);
   add(grid, 'start', 'Starting puzzle', 'Begin with the original givens. The small digits show remaining candidates; no solution digits have been revealed.');
   const solved = search(grid); if (!solved) throw new Error('This puzzle has no solution walkthrough.');
-  add(solved, 'finish', 'Puzzle complete', 'Every row, column, box, and thermometer satisfies the rules. The generation process independently verified that this solution is unique.');
+  add(solved, 'finish', 'Puzzle complete', 'Every row, column, box, and thermometer satisfies the rules. The walkthrough has reached a valid completion.');
   let level = LEVELS.indexOf(result.level);
   while (level < LEVELS.length - 1 && result.score > LEVEL_MAX_SCORE[LEVELS[level]]) level++;
   result.level = LEVELS[level]; return result;

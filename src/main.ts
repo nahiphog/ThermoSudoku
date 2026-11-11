@@ -1,4 +1,5 @@
 import './style.css';
+import { mountImportPage } from './import-page';
 import { encodePuzzle, decodePuzzle } from './puzzle-string';
 import { blank, example, validatePuzzle, generationError, type Puzzle } from './puzzle';
 import { conflicts, type SolveResult } from './solver';
@@ -19,7 +20,8 @@ try {
 
 $('#app').innerHTML = `
 <header class="topbar"><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a></header>
-<main>
+<nav class="page-nav" aria-label="Pages"><a href="#maker">Puzzle maker</a><a href="#import-grid">Import grid</a></nav>
+<main id="maker-page">
   <section class="card settings-card" aria-label="Puzzle options">
     <div class="settings-heading"><h1>Puzzle options</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
     <div class="generation-options">
@@ -27,13 +29,12 @@ $('#app').innerHTML = `
       <label>Minimum thermometer length <select id="min-thermo-length">${Array.from({length:10}, (_, i) => `<option value="${i+2}">${i+2} cells</option>`).join('')}</select></label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
     </div>
-    <div class="generate-row"><p class="muted">Draw the selected number of non-overlapping thermometers, each at least the selected length. Fill them first, complete the grid, empty every thermometer, then dig 180° clue pairs until no more can be removed. The center is tested on its own.</p><button id="generate" class="primary">Generate puzzle</button></div>
+    <div class="generate-row"><button id="generate" class="primary">Generate puzzle</button></div>
     <p id="generation-error" role="alert"></p>
   </section>
   <div class="workspace">
     <section class="board-panel" aria-label="Sudoku workspace">
-      <dl id="generation-stats" class="stats" hidden aria-label="Generation statistics"><div><dt>Givens</dt><dd id="stat-givens"></dd></div><div><dt>Thermometers</dt><dd id="stat-thermos"></dd></div><div><dt>Thermometer cells</dt><dd id="stat-occupied"></dd></div><div><dt>Generation time</dt><dd id="stat-time"></dd></div></dl>
-      <div class="board-heading"><strong id="puzzle-title">Thermo Sudoku</strong><span id="view-label">Puzzle</span></div>
+      <dl id="generation-stats" class="stats" hidden aria-label="Generation statistics"><div><dt>Givens</dt><dd id="stat-givens"></dd></div><div><dt>Thermometers</dt><dd id="stat-thermos"></dd></div><div><dt>Thermometer cells</dt><dd id="stat-occupied"></dd></div><div><dt>Generation time</dt><dd id="stat-time"></dd></div><div><dt>Difficulty rating</dt><dd id="stat-score"></dd></div><div><dt>Hardest technique used</dt><dd id="stat-hardest"></dd></div></dl>
       <div id="board" class="board" role="group" aria-label="Thermo Sudoku grid"><svg id="thermos" class="thermo-overlay" viewBox="0 0 900 900" aria-hidden="true"></svg><div id="cells" class="cells"></div></div>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
@@ -101,8 +102,6 @@ function render() {
   const point = (c: number) => `${c % 9 * 100 + 50},${Math.floor(c / 9) * 100 + 50}`;
   $('#thermos').innerHTML = puzzle.thermos.map(t => `<g><polyline points="${t.map(point).join(' ')}"/><circle cx="${t[0] % 9 * 100 + 50}" cy="${Math.floor(t[0] / 9) * 100 + 50}" r="34"/></g>`).join('');
   $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
-  $('#puzzle-title').textContent = puzzle.variant === 'slow' ? 'Slow Thermo Sudoku' : 'Thermo Sudoku';
-  $('#view-label').textContent = slide !== null ? 'Walkthrough' : revealed ? 'Solution' : 'Puzzle';
   $('#status-title').textContent = progress ? `Step ${progress.stage} of 6 · Attempt ${progress.attempt}` : busy === 'generate' ? 'Generating your puzzle…' : busy ? 'Checking every constraint…' : status;
   $('#status-detail').textContent = progress?.text ?? (busy ? 'Looking for exactly one solution with your selected rules.' : detail);
   for (const [id, key] of Object.entries(settings)) { $<HTMLInputElement>(`#${id}`).checked = puzzle[key]; $<HTMLInputElement>(`#${id}`).disabled = !!busy; }
@@ -129,6 +128,7 @@ function render() {
     const { stats: s, analysis: a } = report;
     $('#stat-givens').textContent = String(s.givens); $('#stat-thermos').textContent = String(s.thermometers);
     $('#stat-occupied').textContent = String(s.thermoCells); $('#stat-time').textContent = `${(s.elapsedMs / 1000).toFixed(2)} s`;
+    $('#stat-score').textContent = String(a.score); $('#stat-hardest').textContent = a.hardest;
     $('#dig-summary').textContent = `${s.attempts} layout attempt(s). Tested ${s.pairsTested} clue orbits and removed ${s.pairsRemoved}. No remaining rotational pair can be removed while keeping a unique solution.`;
     $('#difficulty').textContent = `${a.level} · ${a.score} points (estimated)`;
     $('#rating-summary').textContent = `Hardest step: ${a.hardest}. ${a.guesses} backtracking trial(s), ${a.backtracks} rollback(s).`;
@@ -158,7 +158,7 @@ for (const v of ['thermo', 'slow'] as const) $(`#${v}-variant`).onclick = () => 
   puzzle.variant = v; solution = null; revealed = false; report = null; slide = null; save(); message('Variant updated.', 'Generate a puzzle with the selected rules.'); render();
 };
 window.addEventListener('keydown', e => {
-  if (document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT', 'SELECT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (location.hash === '#import-grid' || document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT', 'SELECT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[0-9]$/.test(e.key) || ['Backspace', 'Delete'].includes(e.key)) { e.preventDefault(); return; }
   const moves: Record<string, number> = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 };
   if (e.key in moves) { e.preventDefault(); selected = (selected + moves[e.key] + 81) % 81; render(); cells[selected].focus(); }
@@ -255,3 +255,5 @@ $('#load-json').onclick = () => {
 };
 $('#download').onclick = () => download(new Blob([JSON.stringify(puzzle, null, 2)], { type: 'application/json' }), 'thermo-sudoku.json');
 render();
+
+mountImportPage();

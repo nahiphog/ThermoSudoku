@@ -18,6 +18,11 @@ test('custom generation options, statistics above grid, and clipboard string rou
   await page.locator('#min-thermo-length').selectOption('2');
   await generate(page);
   const original = await exported(page);
+  await expect(page.locator('#generation-stats dt')).toHaveCount(6);
+  await expect(page.locator('#stat-score')).toHaveText(/^\d+$/);
+  await expect(page.locator('#stat-hardest')).not.toBeEmpty();
+  await expect(page.locator('#puzzle-title, #view-label')).toHaveCount(0);
+  await expect(page.getByText('Draw the selected number', { exact: false })).toHaveCount(0);
   expect(original.thermos).toHaveLength(1);
   const stats = await page.locator('#generation-stats').boundingBox(), board = await page.locator('#board').boundingBox();
   expect(stats!.y + stats!.height).toBeLessThan(board!.y);

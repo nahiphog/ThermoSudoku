@@ -59,14 +59,29 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   into Import to restore a puzzle. It never includes the solution or generation
   preferences. The version prefix allows future format changes. If clipboard
   access is unavailable, a selectable text dialog provides a manual fallback.
-- **Generation report:** shows four attributes above the grid: givens, thermometer count, distinct occupied
-  thermometer cells, elapsed time including retries and analysis, attempts,
-  and digging counts. Reports and walkthroughs belong to the current generation
+- **Generation report:** shows six attributes above the grid: givens, thermometer count,
+  distinct occupied thermometer cells, elapsed time including retries and analysis,
+  numeric difficulty rating, and hardest technique used. Attempts and digging counts
+  appear in the report. Reports and walkthroughs belong to the current generation
   session; exported puzzle JSON remains independent of solution data.
 - **Solution walkthrough:** Previous/Next, first/last, and a slider replay the
   actual solve. Candidate eliminations and placements are highlighted. Failed
   backtracking trials, contradictions, and restored positions are included.
   Close it to return to the puzzle. Image copying is disabled in walkthrough mode.
+
+## Import grid page
+
+Open **Import grid** in the page navigation (`#import-grid`). Paste a TS1 token
+on its own or inside a message, puzzle JSON, or 81 digits with 0/dot blanks.
+Plain digits represent a Sudoku without thermometers. This page checks the
+import independently without replacing the maker's puzzle.
+
+The check runs in a cancelable worker. A unique puzzle displays its completed
+grid beside an interactive walkthrough. For multiple solutions, two valid
+completions appear side by side, with every differing cell highlighted in amber
+and outlined. Contradictory puzzles report no solution. A time limit is reported
+as inconclusive, never as proof of uniqueness. A separate walkthrough timeout
+preserves the verified solution and reports the unavailable analysis.
 
 ## Solver design and provenance
 
