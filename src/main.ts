@@ -11,6 +11,8 @@ import { digitsOf } from './vendor/sudokui/board';
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
 let puzzle = example(), solution: number[] | null = null, revealed = false, selected = 0;
 let worker: Worker | null = null, busy: 'generate' | 'check' | 'solve' | null = null;
+let generationStarted: number | null = null, generationElapsed: number | null = null;
+let generationTimer: ReturnType<typeof setInterval> | null = null;
 let status = 'Ready to generate.', detail = 'Choose your puzzle options above the grid.';
 let report: GeneratedPuzzle | null = null, slide: number | null = null, progress: GenerationProgress | null = null;
 try {
@@ -31,9 +33,9 @@ $('#app').innerHTML = `
       <label><input id="logical-only" type="checkbox"> Logical techniques only (no Brute force)</label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
     </div>
-    <div class="generate-row"><button id="generate" class="primary">Generate puzzle</button></div>
+    <div class="generate-row"><button id="generate" class="primary">Generate puzzle</button><span id="generation-elapsed" class="muted" hidden></span></div>
     <p id="generation-error" role="alert"></p>
-    <div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div><button id="cancel" class="text-button" hidden>Cancel</button>
+    <div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div>
   </section>
   <div class="workspace">
     <section class="board-panel" aria-label="Sudoku workspace">
@@ -82,7 +84,17 @@ const settings = {
   'logical-only': 'logicalOnly',
 } as const;
 function save() { try { localStorage.setItem('thermo-studio-v1', JSON.stringify(puzzle)); } catch { /* Storage is optional. */ } }
-function cancel() { worker?.terminate(); worker = null; busy = null; progress = null; }
+function updateElapsed() {
+  if (generationStarted !== null) generationElapsed = performance.now() - generationStarted;
+  $('#generation-elapsed').hidden = generationElapsed === null;
+  $('#generation-elapsed').textContent = generationElapsed === null ? '' : 'Elapsed: ' + (generationElapsed / 1000).toFixed(1) + ' s';
+}
+function cancel() {
+  worker?.terminate(); worker = null; busy = null; progress = null;
+  updateElapsed(); generationStarted = null;
+  if (generationTimer !== null) clearInterval(generationTimer);
+  generationTimer = null;
+}
 function message(title: string, body: string) { status = title; detail = body; }
 function replace(next: Puzzle) {
   cancel(); puzzle = next; puzzle.values = [...puzzle.givens]; solution = null; revealed = false; report = null; slide = null; save(); render();
@@ -111,17 +123,18 @@ function render() {
   for (const v of ['thermo', 'slow'] as const) {
     const b = $<HTMLButtonElement>(`#${v}-variant`); b.classList.toggle('active', puzzle.variant === v); b.setAttribute('aria-pressed', String(puzzle.variant === v)); b.disabled = !!busy;
   }
-  for (const id of ['generate', 'reveal', 'copy-image']) $<HTMLButtonElement>(`#${id}`).disabled = !!busy;
+  for (const id of ['reveal', 'copy-image']) $<HTMLButtonElement>(`#${id}`).disabled = !!busy;
   $('#grid-actions').hidden = !puzzle.givens.some(Boolean) && !puzzle.thermos.length;
   $('#reveal').textContent = revealed ? 'Hide solution' : 'Reveal solution';
   $('#reveal').setAttribute('aria-pressed', String(revealed));
-  $('#cancel').hidden = !busy;
   $<HTMLButtonElement>('#copy-image').disabled = !!busy || slide !== null;
   $('#generation-report').hidden = !report;
   $('#generation-stats').hidden = !report;
   const invalid = generationError(puzzle.variant, puzzle);
   $('#generation-error').textContent = invalid ?? '';
-  $<HTMLButtonElement>('#generate').disabled = !!busy || !!invalid;
+  $<HTMLButtonElement>('#generate').disabled = !busy && !!invalid;
+  $('#generate').textContent = busy ? 'Cancel' : 'Generate puzzle';
+  updateElapsed();
   for (const [id, key] of Object.entries(numericSettings)) {
     const select = $<HTMLSelectElement>(`#${id}`); select.value = String(puzzle[key] ?? (key === 'thermometerCount' ? 6 : 3)); select.disabled = !!busy;
   }
@@ -166,14 +179,19 @@ window.addEventListener('keydown', e => {
 });
 function run(type: 'check' | 'solve' | 'generate') {
   if (busy || (type === 'generate' && generationError(puzzle.variant, puzzle))) return;
-  busy = type; render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
-  worker.onerror = () => { cancel(); message('Could not complete the request.', 'Please try again.'); render(); };
+  busy = type;
+  if (type === 'generate') { generationStarted = performance.now(); generationElapsed = 0; generationTimer = setInterval(updateElapsed, 100); }
+  render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
+  const activeWorker = worker;
+  worker.onerror = () => { if (worker !== activeWorker) return; cancel(); message('Could not complete the request.', 'Please try again.'); render(); };
   worker.onmessage = event => {
+    if (worker !== activeWorker) return;
     if (event.data.progress) { progress = event.data.progress; render(); return; }
     cancel();
     if (event.data.error) { message('Could not complete the request.', event.data.error); render(); return; }
     if (type === 'generate') {
       const generated = event.data.result as GeneratedPuzzle;
+      generated.stats.elapsedMs = generationElapsed ?? generated.stats.elapsedMs;
       replace(validatePuzzle(generated.puzzle)); report = generated; solution = generated.solution;
       message('A new puzzle, with one solution.', 'All six stages are complete. View the statistics and solution walkthrough.');
     } else {
@@ -195,7 +213,10 @@ function confirmChange(title: string, action: () => void) {
   $('#confirm-yes').onclick = () => { $<HTMLDialogElement>('#confirm').close(); action(); };
 }
 $('#confirm-no').onclick = () => $<HTMLDialogElement>('#confirm').close();
-$('#generate').onclick = () => run('generate');
+$('#generate').onclick = () => {
+  if (busy) { cancel(); message('Canceled.', 'Your current puzzle is unchanged.'); render(); }
+  else run('generate');
+};
 $('#reveal').onclick = () => {
   slide = null;
   if (revealed) { revealed = false; render(); }
@@ -209,7 +230,6 @@ $('#slide-next').onclick = () => { if (report && slide !== null && slide < repor
 $('#slide-first').onclick = () => { slide = 0; render(); };
 $('#slide-last').onclick = () => { if (report) { slide = report.analysis.frames.length - 1; render(); } };
 $<HTMLInputElement>('#slide-range').oninput = e => { slide = Number((e.target as HTMLInputElement).value); render(); };
-$('#cancel').onclick = () => { cancel(); message('Canceled.', 'Your current puzzle is unchanged.'); render(); };
 $('#new').onclick = () => confirmChange('Start a new puzzle?', () => {
   const next = blank(puzzle.variant, puzzle.noThermoGivens);
   for (const key of Object.values(settings)) next[key] = !!puzzle[key];

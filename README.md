@@ -33,9 +33,9 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 - **Logical techniques only (no Brute force):** enabled by default; uncheck to disable. After
   complete uniqueness-based digging, the generator attempts a walkthrough using
   only supported logical techniques and thermometer deductions. If it stalls,
-  generation restarts with a new layout within the same time budget. Accepted
+  generation restarts with a new layout. Accepted
   puzzles have zero Brute force uses and a complete logical walkthrough. This
-  filter can take longer or time out; it never silently returns an unrestricted
+  filter can take longer; it never silently returns an unrestricted
   puzzle. Construction and independent uniqueness verification may still use
   backtracking internally. The preference persists locally and in JSON exports.
 - **Rotationally symmetric thermometers:** an optional layout setting, enabled
@@ -50,7 +50,7 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   the bulb (defaults: 6 thermometers, minimum 3 cells). Strict Thermo permits
   at most 9 cells. Rotational symmetry requires an even count; non-overlapping
   paths must fit within 81 cells. Invalid combinations are explained before
-  generation. Other difficult selections may reach the time budget without a puzzle.
+  generation. Difficult selections may take longer; use Cancel to stop the search.
 - Use the **Import grid** page to check uniqueness with the original givens and paths.
 - **Reveal / hide solution:** below the grid, reveals only a verified unique
   solution. Hiding restores exactly the original puzzle. The solution is held
@@ -109,7 +109,7 @@ thermometers, and a minimum-candidate search that validates the thermo
 constraints at every node. It tries every supported logical finder before
 branching with backtracking. Search counts up to two solutions, runs in a
 dedicated worker, and normally stops after five seconds (generation supplies
-its remaining overall budget instead). A timed-out search never
+an unlimited budget instead). A timed-out search never
 claims uniqueness or impossibility. Cancel terminates the worker. Standard
 Sudoku uniqueness techniques are not enabled for the variant.
 
@@ -132,11 +132,14 @@ Sudoku uniqueness techniques are not enabled for the variant.
 6. Record statistics, calculate a difficulty estimate, and produce a complete
    solution replay. Display only the completed result.
 
-Generation has a 30-second overall budget and can be canceled. Individual
-filling attempts have shorter budgets and retry from step 1. A timeout during
-uniqueness checking, digging, or walkthrough recording fails the request; it
-never treats an untested removal as impossible or returns an unfinished puzzle.
-The current board is retained on failure.
+Generation has no overall time limit. Generate puzzle becomes Cancel while the
+worker runs, and a live elapsed timer updates every tenth of a second. Cancel
+terminates the worker and retains the current puzzle; the timer freezes until
+the next generation starts. The final generation statistic uses the same elapsed
+clock. Individual filling attempts still restart when unproductive; these local
+retry budgets do not end generation. Uniqueness checking, digging, and walkthrough
+analysis receive no time limit. Explicit finite budgets remain available to tests
+and library callers; a timed-out check never counts as proof.
 
 ### Difficulty estimate
 

@@ -1,6 +1,36 @@
 import { expect, test, type Page } from '@playwright/test';
 test.setTimeout(90000);
 const optionLabels = ['Rotationally symmetric thermometers'];
+test('generation has a live timer and a single cancel button that restores the puzzle', async ({ page }) => {
+  // Keep the worker pending to test time and cancellation without relying on puzzle difficulty.
+  await page.addInitScript(() => {
+    (window as unknown as { Worker: unknown }).Worker = class {
+      postMessage() {} terminate() {}
+    };
+  });
+  await page.clock.install();
+  await page.goto('/');
+  const before = await page.locator('#cells').allTextContents();
+  await page.locator('#generate').click();
+  await expect(page.locator('#generate')).toHaveText('Cancel');
+  await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(1);
+  await expect(page.locator('#cancel')).toHaveCount(0);
+  await expect(page.locator('#generation-elapsed')).toBeVisible();
+  await page.clock.fastForward(31000);
+  const elapsed = await page.locator('#generation-elapsed').textContent();
+  expect(Number(elapsed!.match(/[\d.]+/)![0])).toBeGreaterThanOrEqual(31);
+  await expect(page.locator('#generate')).toHaveText('Cancel');
+  await page.locator('#generate').click();
+  await expect(page.locator('#generate')).toHaveText('Generate puzzle');
+  await expect(page.locator('#status-title')).toHaveText('Canceled.');
+  await expect(page.locator('#cells')).toHaveText(before);
+  const stopped = await page.locator('#generation-elapsed').textContent();
+  await page.clock.fastForward(2000);
+  await expect(page.locator('#generation-elapsed')).toHaveText(stopped!);
+  await page.locator('#generate').click();
+  await expect(page.locator('#generation-elapsed')).toHaveText('Elapsed: 0.0 s');
+  await page.locator('#generate').click();
+});
 test('logical-only preference persists and generates without Brute force', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#logical-only')).toBeChecked();

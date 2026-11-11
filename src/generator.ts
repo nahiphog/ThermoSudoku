@@ -122,10 +122,10 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
 
 // Legacy call signature retained; the prescribed workflow now mandates thermo
 // exclusion, disjoint paths and paired clue digging regardless of old flags.
-export function generate(variant: Variant, _noThermoGivens = true, random = Math.random, budgetMs = 30000, options: GenerationOptions = DEFAULT_GENERATION): Puzzle {
+export function generate(variant: Variant, _noThermoGivens = true, random = Math.random, budgetMs = Infinity, options: GenerationOptions = DEFAULT_GENERATION): Puzzle {
   return pipeline(variant, random, budgetMs, options, () => {}).puzzle;
 }
-export function generateDetailed(variant: Variant, options = DEFAULT_GENERATION, progress: Progress = () => {}, random = Math.random, budgetMs = 30000): GeneratedPuzzle {
+export function generateDetailed(variant: Variant, options = DEFAULT_GENERATION, progress: Progress = () => {}, random = Math.random, budgetMs = Infinity): GeneratedPuzzle {
   const result = pipeline(variant, random, budgetMs, options, progress);
   if (!result.analysis) progress({ stage: 6, attempt: result.stats.attempts, text: 'Calculating difficulty and recording the complete solution walkthrough.' });
   const analysis = result.analysis ?? analyze(result.puzzle, Math.max(0, result.deadline - performance.now()));
