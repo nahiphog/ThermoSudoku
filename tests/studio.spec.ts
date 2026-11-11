@@ -11,16 +11,11 @@ test('authoring, diagonal paths, undo, import, persistence and solving', async (
   await page.getByRole('button', { name: 'Finish thermometer' }).click();
   await expect(page.locator('#thermos circle')).toHaveCount(1);
   await expect(page.locator('#thermos polyline')).toHaveAttribute('points', '50,50 150,150 250,250');
-  await page.getByRole('button', { name: 'Given digits' }).click();
-  await page.locator('[data-cell="0"]').click(); await page.keyboard.press('5');
-  await page.locator('[data-cell="20"]').click(); await page.keyboard.press('4');
-  await expect(page.locator('.cell.conflict')).toHaveCount(2);
   await page.getByRole('button', { name: 'Undo', exact: false }).click();
-  await expect(page.locator('[data-cell="20"]')).toHaveText('');
+  await expect(page.locator('#thermos circle')).toHaveCount(0);
   await page.getByRole('button', { name: 'Redo', exact: false }).click();
-  await expect(page.locator('[data-cell="20"]')).toHaveText('4');
+  await expect(page.locator('#thermos circle')).toHaveCount(1);
   await page.reload(); await expect(page.locator('#thermos circle')).toHaveCount(1);
-  await expect(page.locator('[data-cell="20"]')).toHaveText('4');
   await page.getByRole('button', { name: 'Import', exact: false }).click();
   await page.locator('#puzzle-json').fill('{"version":1}'); await page.locator('#load-json').click();
   await expect(page.locator('#import-error')).not.toBeEmpty(); await page.getByRole('button', { name: 'Close dialog' }).click();
@@ -49,11 +44,28 @@ test('drag drawing, erase and mobile layout', async ({ page }) => {
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
 });
 
-test('desktop maker keeps givens editable without a play option', async ({ page }) => {
+test('compact maker blocks manual digit and pencil-mark input', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1200 }); await page.goto('/');
   await expect(page.getByRole('button', { name: 'Solve & play' })).toHaveCount(0);
-  await page.locator('[data-cell="0"]').click(); await page.keyboard.press('9');
-  await expect(page.locator('[data-cell="0"]')).toHaveText('9');
+  await expect(page.locator('.intro')).toHaveCount(0);
+  await expect(page.getByText('A CLASSIC, WITH A TWIST')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Given digits' })).toHaveCount(0);
+  await expect(page.locator('#keypad')).toHaveCount(0);
+  const before = await page.locator('.cell').allTextContents();
+  for (const cell of [0, 2]) {
+    await page.locator('[data-cell="' + cell + '"]').click();
+    for (const key of ['1', '9', '0', 'Delete', 'Backspace', 'Shift+2', 'Control+3', 'Alt+4']) await page.keyboard.press(key);
+  }
+  await expect(page.locator('.cell')).toHaveText(before);
+  await expect(page.locator('.pencil')).toHaveCount(0);
+  await page.getByLabel('Show candidates').check();
+  const autoCandidates = await page.locator('.cell').allTextContents();
+  await page.locator('[data-cell="2"]').click();
+  await page.keyboard.press('5'); await page.keyboard.press('Shift+5');
+  await expect(page.locator('.cell')).toHaveText(autoCandidates);
+  await page.getByLabel('Show candidates').uncheck();
+  await page.reload();
+  await expect(page.locator('.cell')).toHaveText(before);
   await page.screenshot({ path: 'test-results/desktop.png', fullPage: true });
 });
 

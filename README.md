@@ -19,15 +19,17 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 
 ## Using the studio
 
-- **Puzzle maker:** click a cell and type 1–9 to set a given. Delete clears it.
-  The separate Solve & play mode is currently removed; clues remain editable.
+- **Puzzle maker:** manual digit entry, erasing digits, and pencil/Snyder marks
+  are currently disabled. Select cells to inspect them or use arrow keys to move.
+  Automatic candidates, hints, solving, generation, and JSON import still work.
+  The separate Solve & play mode is currently removed.
 - **Thermo / Slow Thermo:** choose strictly increasing or nondecreasing paths.
   Slow Thermo requires at least one equal consecutive pair on a thermometer
   in the completed grid. Normal Sudoku rules still apply to those cells.
 - **Generate puzzle:** creates and verifies a puzzle with exactly one solution.
   By default, no thermometer cell (including bulbs) contains a given.
   Disable **No givens on thermometers** to allow those givens. This setting
-  applies to generation, not manual clue editing or imported puzzles.
+  applies to generation, not imported puzzles.
 - **Thermometer:** click a bulb and successive neighboring cells, then Finish
   or Enter. Alternatively drag a connected path and release. Orthogonal and
   diagonal steps work. Retrace one cell to shorten a draft; Esc cancels it.
