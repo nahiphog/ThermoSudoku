@@ -177,7 +177,7 @@ function confirmChange(title: string, action: () => void) {
   $('#confirm-yes').onclick = () => { $<HTMLDialogElement>('#confirm').close(); action(); };
 }
 $('#confirm-no').onclick = () => $<HTMLDialogElement>('#confirm').close();
-$('#generate').onclick = () => confirmChange('Generate a new puzzle?', () => run('generate'));
+$('#generate').onclick = () => run('generate');
 $('#check').onclick = () => run('check');
 $('#reveal').onclick = () => {
   slide = null;

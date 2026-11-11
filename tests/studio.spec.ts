@@ -3,7 +3,7 @@ test.setTimeout(90000);
 const optionLabels = ['Rotationally symmetric thermometers'];
 async function generate(page: Page) {
   await page.getByRole('button', { name: 'Generate puzzle', exact: true }).click();
-  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.locator('#confirm')).not.toBeVisible();
   await expect(page.locator('#status-title')).toHaveText('A new puzzle, with one solution.', { timeout: 35000 });
 }
 async function exported(page: Page) {
