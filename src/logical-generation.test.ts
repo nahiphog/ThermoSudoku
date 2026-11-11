@@ -4,9 +4,11 @@ import { blank, DEFAULT_GENERATION, validatePuzzle } from './puzzle';
 import { solve } from './solver';
 
 function seeded(seed: number) { return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; }
-it('defaults older puzzles to unrestricted generation and validates the setting', () => {
+it('defaults older puzzles to logical-only generation and validates the setting', () => {
   const p = blank(); delete p.logicalOnly;
-  expect(validatePuzzle(p).logicalOnly).toBe(false);
+  expect(validatePuzzle(p).logicalOnly).toBe(true);
+  expect(blank().logicalOnly).toBe(true);
+  expect(validatePuzzle({ ...p, logicalOnly: false }).logicalOnly).toBe(false);
   expect(() => validatePuzzle({ ...p, logicalOnly: 'yes' })).toThrow();
 });
 for (const variant of ['thermo', 'slow'] as const) it(`generates a minimal unique ${variant} with a complete logic-only walkthrough`, () => {

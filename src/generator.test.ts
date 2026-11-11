@@ -47,7 +47,7 @@ describe('variants and generation', () => {
     expect(solve(p).solutions).toHaveLength(1);
   }, 40000);
   it('never returns an unverified puzzle on generation timeout', () => {
-    expect(() => generate('slow', true, seeded(1), 0)).toThrow(/budget/);
+    expect(() => generate('slow', true, seeded(1), 0)).toThrow(/budget|time limit/);
   });
   it('detects shared cells, branching, crossing diagonals and self-crossings', () => {
     expect(hasOverlap([[0, 10, 11], [1, 9, 18]])).toBe(true);

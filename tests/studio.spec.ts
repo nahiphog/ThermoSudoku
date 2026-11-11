@@ -3,7 +3,7 @@ test.setTimeout(90000);
 const optionLabels = ['Rotationally symmetric thermometers'];
 test('logical-only preference persists and generates without Brute force', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('#logical-only')).not.toBeChecked();
+  await expect(page.locator('#logical-only')).toBeChecked();
   await page.locator('#logical-only').check(); await page.reload();
   await expect(page.locator('#logical-only')).toBeChecked();
   await generate(page);

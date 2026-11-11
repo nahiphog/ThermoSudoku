@@ -30,7 +30,7 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 - **Generate puzzle:** follows the six-stage layout-first process below.
   No thermometer cell (including bulbs) contains a given; clue positions are
   rotationally symmetric and digging runs to completion without a clue target.
-- **Logical techniques only (no Brute force):** optional, off by default. After
+- **Logical techniques only (no Brute force):** enabled by default; uncheck to disable. After
   complete uniqueness-based digging, the generator attempts a walkthrough using
   only supported logical techniques and thermometer deductions. If it stalls,
   generation restarts with a new layout within the same time budget. Accepted
