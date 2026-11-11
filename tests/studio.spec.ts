@@ -1,6 +1,38 @@
 import { expect, test, type Page } from '@playwright/test';
 test.setTimeout(90000);
 const optionLabels = ['Rotationally symmetric thermometers'];
+test('custom generation options, statistics above grid, and clipboard string round trip', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await expect(page.locator('#thermometer-count option')).toHaveCount(30);
+  await expect(page.locator('#min-thermo-length option')).toHaveCount(10);
+  await expect(page.locator('#min-thermo-length')).toHaveValue('3');
+  await page.locator('#thermometer-count').selectOption('30');
+  await expect(page.locator('#generate')).toBeDisabled();
+  await expect(page.locator('#generation-error')).toContainText('81');
+  await page.locator('#thermometer-count').selectOption('1');
+  await expect(page.locator('#generation-error')).toContainText('even');
+  await page.locator('#symmetric-thermos').uncheck();
+  await page.locator('#min-thermo-length').selectOption('10');
+  await expect(page.locator('#generation-error')).toContainText('at most 9');
+  await page.locator('#min-thermo-length').selectOption('2');
+  await generate(page);
+  const original = await exported(page);
+  expect(original.thermos).toHaveLength(1);
+  const stats = await page.locator('#generation-stats').boundingBox(), board = await page.locator('#board').boundingBox();
+  expect(stats!.y + stats!.height).toBeLessThan(board!.y);
+  await page.locator('#reveal').click();
+  await page.locator('#copy-string').click();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  expect(text.split('|')[2]).toBe(original.givens.join(''));
+  await page.locator('#import').click();
+  await page.locator('#puzzle-json').fill(text);
+  await page.locator('#load-json').click();
+  const restored = await exported(page);
+  expect(restored.givens).toEqual(original.givens);
+  expect(restored.thermos).toEqual(original.thermos);
+  expect(restored.variant).toBe(original.variant);
+});
 async function generate(page: Page) {
   await page.getByRole('button', { name: 'Generate puzzle', exact: true }).click();
   await expect(page.locator('#confirm')).not.toBeVisible();

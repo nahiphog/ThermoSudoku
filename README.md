@@ -38,8 +38,11 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   shared cells, shared bulbs, branching and diagonal crossings, including
   self-crossings. Legacy exclusion/overlap/clue-symmetry toggles no longer override
   the new generation workflow; imported puzzles remain readable.
-- At least six thermometers are generated, each with at least three cells including the bulb.
-  `MIN_THERMO_LENGTH` in `src/puzzle.ts` controls this generation minimum.
+- Select exactly 1–30 thermometers and a minimum length of 2–11 cells, including
+  the bulb (defaults: 6 thermometers, minimum 3 cells). Strict Thermo permits
+  at most 9 cells. Rotational symmetry requires an even count; non-overlapping
+  paths must fit within 81 cells. Invalid combinations are explained before
+  generation. Other difficult selections may reach the time budget without a puzzle.
 - **Check puzzle:** checks uniqueness using the original givens and paths.
 - **Reveal / hide solution:** below the grid, reveals only a verified unique
   solution. Hiding restores exactly the original puzzle. The solution is held
@@ -49,7 +52,14 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   images are unavailable or access is denied, downloads the same PNG instead.
 - JSON import/export includes givens, entries, and ordered thermometer paths.
   The current puzzle is also saved in local storage when available.
-- **Generation report:** shows givens, thermometer count, distinct occupied
+- **Copy puzzle string:** copies `TS1|T|<81 digits>|<paths>` (`S` for Slow Thermo).
+  Clues are row-major, with 0 for blanks. Each path concatenates two-digit
+  row/column coordinates (11–99), bulb first; semicolons separate paths.
+  For example, `112233` represents r1c1 → r2c2 → r3c3. Paste the entire string
+  into Import to restore a puzzle. It never includes the solution or generation
+  preferences. The version prefix allows future format changes. If clipboard
+  access is unavailable, a selectable text dialog provides a manual fallback.
+- **Generation report:** shows four attributes above the grid: givens, thermometer count, distinct occupied
   thermometer cells, elapsed time including retries and analysis, attempts,
   and digging counts. Reports and walkthroughs belong to the current generation
   session; exported puzzle JSON remains independent of solution data.
@@ -78,7 +88,7 @@ Sudoku uniqueness techniques are not enabled for the variant.
 
 ### Six-stage generation
 
-1. Draw at least six disjoint thermometer paths without consulting any digits.
+1. Draw the selected number of disjoint thermometer paths, respecting the selected minimum length, without consulting any digits.
 2. Randomized candidate-based backtracking fills only thermometer cells. Slow
    Thermo assignments must include an equal consecutive pair. Failure restarts
    with a new layout.

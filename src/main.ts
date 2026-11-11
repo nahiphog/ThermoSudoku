@@ -1,5 +1,6 @@
 import './style.css';
-import { blank, example, validatePuzzle, type Puzzle } from './puzzle';
+import { encodePuzzle, decodePuzzle } from './puzzle-string';
+import { blank, example, validatePuzzle, generationError, type Puzzle } from './puzzle';
 import { conflicts, type SolveResult } from './solver';
 import { gridImage } from './grid-image';
 import type { GeneratedPuzzle, GenerationProgress } from './generator';
@@ -22,21 +23,26 @@ $('#app').innerHTML = `
   <section class="card settings-card" aria-label="Puzzle options">
     <div class="settings-heading"><h1>Puzzle options</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
     <div class="generation-options">
+      <label>Number of thermometers <select id="thermometer-count">${Array.from({length:30}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}</select></label>
+      <label>Minimum thermometer length <select id="min-thermo-length">${Array.from({length:10}, (_, i) => `<option value="${i+2}">${i+2} cells</option>`).join('')}</select></label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
     </div>
-    <div class="generate-row"><p class="muted">Draw at least 6 non-overlapping thermometers of 3+ cells. Fill them first, complete the grid, empty every thermometer, then dig 180° clue pairs until no more can be removed. The center is tested on its own.</p><button id="generate" class="primary">Generate puzzle</button></div>
+    <div class="generate-row"><p class="muted">Draw the selected number of non-overlapping thermometers, each at least the selected length. Fill them first, complete the grid, empty every thermometer, then dig 180° clue pairs until no more can be removed. The center is tested on its own.</p><button id="generate" class="primary">Generate puzzle</button></div>
+    <p id="generation-error" role="alert"></p>
   </section>
   <div class="workspace">
     <section class="board-panel" aria-label="Sudoku workspace">
+      <dl id="generation-stats" class="stats" hidden aria-label="Generation statistics"><div><dt>Givens</dt><dd id="stat-givens"></dd></div><div><dt>Thermometers</dt><dd id="stat-thermos"></dd></div><div><dt>Thermometer cells</dt><dd id="stat-occupied"></dd></div><div><dt>Generation time</dt><dd id="stat-time"></dd></div></dl>
       <div class="board-heading"><strong id="puzzle-title">Thermo Sudoku</strong><span id="view-label">Puzzle</span></div>
       <div id="board" class="board" role="group" aria-label="Thermo Sudoku grid"><svg id="thermos" class="thermo-overlay" viewBox="0 0 900 900" aria-hidden="true"></svg><div id="cells" class="cells"></div></div>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
+      <button id="copy-string" class="outline full">Copy puzzle string</button>
     </section>
     <aside>
       <section id="generation-report" class="card" hidden aria-label="Generation statistics">
         <h2>Your generated puzzle</h2>
-        <dl class="stats"><div><dt>Givens</dt><dd id="stat-givens"></dd></div><div><dt>Thermometers</dt><dd id="stat-thermos"></dd></div><div><dt>Thermometer cells</dt><dd id="stat-occupied"></dd></div><div><dt>Generation time</dt><dd id="stat-time"></dd></div></dl>
+
         <p id="dig-summary" class="muted"></p>
         <h3 id="difficulty"></h3><p id="rating-summary" class="muted"></p>
         <details><summary>How this estimate is calculated</summary><p class="muted">We sum the imported sudokUI technique scores, add 5 per thermometer-bound reduction and 1,000 per backtracking trial. The level uses the hardest technique and the imported score thresholds; any trial is Extreme. This is an engine-based estimate, not a calibrated human difficulty or an official HoDoKu rating.</p><p id="technique-summary" class="muted"></p></details>
@@ -67,6 +73,7 @@ const cells = Array.from({ length: 81 }, (_, i) => {
   b.onclick = () => { selected = i; render(); };
   $('#cells').append(b); return b;
 });
+const numericSettings = { 'thermometer-count': 'thermometerCount', 'min-thermo-length': 'minThermoLength' } as const;
 const settings = {
   'symmetric-thermos': 'symmetricThermos',
 } as const;
@@ -110,6 +117,13 @@ function render() {
   $('#cancel').hidden = !busy;
   $<HTMLButtonElement>('#copy-image').disabled = !!busy || slide !== null;
   $('#generation-report').hidden = !report;
+  $('#generation-stats').hidden = !report;
+  const invalid = generationError(puzzle.variant, puzzle);
+  $('#generation-error').textContent = invalid ?? '';
+  $<HTMLButtonElement>('#generate').disabled = !!busy || !!invalid;
+  for (const [id, key] of Object.entries(numericSettings)) {
+    const select = $<HTMLSelectElement>(`#${id}`); select.value = String(puzzle[key] ?? (key === 'thermometerCount' ? 6 : 3)); select.disabled = !!busy;
+  }
   if (slide === null || !report) { $<HTMLDialogElement>('#walkthrough-panel').close(); $('#walk-board').innerHTML = ''; }
   if (report) {
     const { stats: s, analysis: a } = report;
@@ -132,6 +146,9 @@ function render() {
     }
   }
 }
+for (const [id, key] of Object.entries(numericSettings)) $<HTMLSelectElement>(`#${id}`).onchange = e => {
+  puzzle[key] = Number((e.target as HTMLSelectElement).value); save(); render();
+};
 for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).onchange = e => {
   puzzle[key] = (e.target as HTMLInputElement).checked; save(); message('Generation options updated.', 'These settings apply when you generate your next puzzle.'); render();
 };
@@ -141,13 +158,13 @@ for (const v of ['thermo', 'slow'] as const) $(`#${v}-variant`).onclick = () => 
   puzzle.variant = v; solution = null; revealed = false; report = null; slide = null; save(); message('Variant updated.', 'Generate a puzzle with the selected rules.'); render();
 };
 window.addEventListener('keydown', e => {
-  if (document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT', 'SELECT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[0-9]$/.test(e.key) || ['Backspace', 'Delete'].includes(e.key)) { e.preventDefault(); return; }
   const moves: Record<string, number> = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 };
   if (e.key in moves) { e.preventDefault(); selected = (selected + moves[e.key] + 81) % 81; render(); cells[selected].focus(); }
 });
 function run(type: 'check' | 'solve' | 'generate') {
-  if (busy) return;
+  if (busy || (type === 'generate' && generationError(puzzle.variant, puzzle))) return;
   busy = type; render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
   worker.onerror = () => { cancel(); message('Could not complete the request.', 'Please try again.'); render(); };
   worker.onmessage = event => {
@@ -197,6 +214,7 @@ $('#cancel').onclick = () => { cancel(); message('Canceled.', 'Your current puzz
 $('#new').onclick = () => confirmChange('Start a new puzzle?', () => {
   const next = blank(puzzle.variant, puzzle.noThermoGivens);
   for (const key of Object.values(settings)) next[key] = puzzle[key];
+  next.thermometerCount = puzzle.thermometerCount; next.minThermoLength = puzzle.minThermoLength;
   replace(next); message('Ready to generate.', 'Choose your options and generate a puzzle.'); render();
 });
 $('#example').onclick = () => confirmChange('Load the example puzzle?', () => { replace(example()); message('Example loaded.', 'This fixed example predates the new generation settings.'); render(); });
@@ -216,9 +234,15 @@ $('#copy-image').onclick = async () => {
   }
   render();
 };
+$('#copy-string').onclick = async () => {
+  const text = encodePuzzle(puzzle);
+  try { await navigator.clipboard.writeText(text); message('Puzzle string copied.', 'Paste it into Import to restore the givens, variant and ordered thermometer paths. Solutions are never included.'); }
+  catch { transfer(true); $('#transfer-help').textContent = 'Clipboard access was unavailable. Select and copy this puzzle string.'; $<HTMLTextAreaElement>('#puzzle-json').value = text; $('#download').hidden = true; $<HTMLTextAreaElement>('#puzzle-json').select(); }
+  render();
+};
 function transfer(exporting: boolean) {
   $('#transfer-title').textContent = exporting ? 'Export puzzle' : 'Import puzzle';
-  $('#transfer-help').textContent = exporting ? 'Includes givens, thermometer paths, and generation preferences. Revealing the solution never changes the exported puzzle.' : 'Paste a Thermo Sudoku JSON puzzle. Import replaces the current puzzle.';
+  $('#transfer-help').textContent = exporting ? 'Includes givens, thermometer paths, and generation preferences. Revealing the solution never changes the exported puzzle.' : 'Paste a TS1 puzzle string or a Thermo Sudoku JSON puzzle. Import replaces the current puzzle.';
   $<HTMLTextAreaElement>('#puzzle-json').value = exporting ? JSON.stringify(puzzle, null, 2) : '';
   $<HTMLTextAreaElement>('#puzzle-json').readOnly = exporting;
   $('#load-json').hidden = exporting; $('#download').hidden = !exporting; $('#import-error').textContent = '';
@@ -226,7 +250,7 @@ function transfer(exporting: boolean) {
 }
 $('#import').onclick = () => transfer(false); $('#export').onclick = () => transfer(true);
 $('#load-json').onclick = () => {
-  try { replace(validatePuzzle(JSON.parse($<HTMLTextAreaElement>('#puzzle-json').value))); $<HTMLDialogElement>('#transfer').close(); message('Puzzle imported.', 'Check the puzzle or reveal its solution.'); render(); }
+  try { replace($<HTMLTextAreaElement>('#puzzle-json').value.trim().startsWith('TS1|') ? decodePuzzle($<HTMLTextAreaElement>('#puzzle-json').value) : validatePuzzle(JSON.parse($<HTMLTextAreaElement>('#puzzle-json').value))); $<HTMLDialogElement>('#transfer').close(); message('Puzzle imported.', 'Check the puzzle or reveal its solution.'); render(); }
   catch (e) { $('#import-error').textContent = e instanceof Error ? e.message : 'Invalid puzzle JSON.'; }
 };
 $('#download').onclick = () => download(new Blob([JSON.stringify(puzzle, null, 2)], { type: 'application/json' }), 'thermo-sudoku.json');

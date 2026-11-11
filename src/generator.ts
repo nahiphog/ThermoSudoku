@@ -1,4 +1,4 @@
-import { adjacent, blank, DEFAULT_GENERATION, hasRepeatedStep, MIN_THERMO_LENGTH, type GenerationOptions, type Puzzle, type Variant } from './puzzle';
+import { adjacent, blank, DEFAULT_GENERATION, hasRepeatedStep, generationError, MIN_THERMO_LENGTH, type GenerationOptions, type Puzzle, type Variant } from './puzzle';
 import { propagate, solve } from './solver';
 import { cloneGrid, digitsOf, emptyGrid, popcount, setValue, type Grid } from './vendor/sudokui/board';
 import { analyze, type Analysis } from './walkthrough';
@@ -30,21 +30,22 @@ type Progress = (progress: GenerationProgress) => void;
 const budgetError = () => new Error('Generation budget reached before completing all uniqueness checks and digging. No unfinished puzzle was returned; please try again.');
 
 /** Step 1: geometry only. There are no digits or completed grids at this point. */
-export function drawLayout(symmetric: boolean, random = Math.random): number[][] | null {
+export function drawLayout(symmetric: boolean, random = Math.random, count = 6, minLength = MIN_THERMO_LENGTH, maxLength = 11): number[][] | null {
   const paths: number[][] = [];
-  for (let trial = 0; trial < 300 && paths.length < 6; trial++) {
+  for (let trial = 0; trial < 300 && paths.length < count; trial++) {
     const path = [Math.floor(random() * 81)];
-    const length = MIN_THERMO_LENGTH + (random() < .35 ? 1 : 0);
+    const spare = 81 - count * minLength;
+    const length = minLength + (minLength < maxLength && spare > count && random() < .35 ? 1 : 0);
     while (path.length < length) {
       const next = shuffle(neighbors[path.at(-1)!], random).find(c => !path.includes(c) && !hasOverlap([...paths, [...path, c]]));
       if (next === undefined) break;
       path.push(next);
     }
-    if (path.length < MIN_THERMO_LENGTH) continue;
+    if (path.length < minLength) continue;
     const addition = symmetric ? [path, rotatePath(path)] : [path];
     if (!hasOverlap([...paths, ...addition])) paths.push(...addition);
   }
-  return paths.length >= 6 ? paths : null;
+  return paths.length === count ? paths : null;
 }
 
 /** Randomized MRV backtracking restricted to the requested phase's cells.
@@ -69,13 +70,15 @@ export function fillCells(start: Grid, p: Puzzle, targets: number[], random: () 
  * can only increase the solution set. A timeout aborts, never counts as proof.
  * The rotationally fixed center is tested as a singleton orbit. */
 function pipeline(variant: Variant, random: () => number, budgetMs: number, options: GenerationOptions, progress: Progress) {
+  const invalid = generationError(variant, options); if (invalid) throw new Error(invalid);
+  const count = options.thermometerCount ?? 6, minLength = options.minThermoLength ?? 3;
   const started = performance.now(), deadline = started + budgetMs;
   let attempts = 0;
   while (performance.now() < deadline) {
     attempts++;
-    progress({ stage: 1, attempt: attempts, text: 'Drawing at least six non-overlapping thermometers.' });
-    const paths = drawLayout(options.symmetricThermos, random); if (!paths) continue;
-    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths;
+    progress({ stage: 1, attempt: attempts, text: `Drawing ${count} non-overlapping thermometers of ${minLength}+ cells.` });
+    const paths = drawLayout(options.symmetricThermos, random, count, minLength, variant === 'thermo' ? 9 : 11); if (!paths) continue;
+    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths; p.thermometerCount = count; p.minThermoLength = minLength;
     const thermoCells = [...new Set(paths.flat())];
     progress({ stage: 2, attempt: attempts, text: 'Filling thermometer cells while obeying Sudoku and thermometer rules.' });
     const filledThermos = fillCells(emptyGrid(), p, thermoCells, random, Math.min(deadline, performance.now() + 600), true);
