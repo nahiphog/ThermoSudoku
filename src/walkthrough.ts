@@ -8,7 +8,7 @@ export interface Frame { title: string; description: string; values: number[]; c
 export interface Analysis { frames: Frame[]; score: number; level: Level; hardest: string; guesses: number; backtracks: number; techniques: Record<string, number> }
 /** A replay of the actual solving process, including failed trials and rollback.
  * This is an estimate: upstream technique weights + 5 per thermo reduction +
- * 1000 per trial. Trials always force Extreme, never masquerade as deductions. */
+ * 10000 per Brute force use. Trials always force Extreme, never masquerade as deductions. */
 export function analyze(p: Puzzle, budgetMs = 10000): Analysis {
   const result: Analysis = { frames: [], score: 0, level: 'Easy', hardest: 'None', guesses: 0, backtracks: 0, techniques: {} };
   const deadline = performance.now() + budgetMs;
@@ -43,8 +43,8 @@ export function analyze(p: Puzzle, budgetMs = 10000): Analysis {
     const digits = digitsOf(g.cands[cell]);
     for (const d of digits) {
       const next = cloneGrid(g); setValue(next, cell, d); result.guesses++;
-      credit('Backtracking trial', 1000, 'Extreme');
-      add(next, 'guess', 'Backtracking trial', `No supported logical technique applies. Try ${cellName(cell)} = ${d} from candidates ${digits.join(', ')}. This is an assumption, not a deduction.`, [{ cell, digit: d }]);
+      credit('Brute force', 10000, 'Extreme');
+      add(next, 'guess', 'Brute force', `No supported logical technique applies. Try ${cellName(cell)} = ${d} from candidates ${digits.join(', ')}. This is an assumption, not a deduction.`, [{ cell, digit: d }]);
       const completed = search(next); if (completed) return completed;
       result.backtracks++;
       add(g, 'backtrack', 'Restore previous position', `The trial ${cellName(cell)} = ${d} cannot be completed. Undo that branch and try the next candidate.`);

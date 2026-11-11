@@ -32,6 +32,7 @@ $('#app').innerHTML = `
     </div>
     <div class="generate-row"><button id="generate" class="primary">Generate puzzle</button></div>
     <p id="generation-error" role="alert"></p>
+    <div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div><button id="cancel" class="text-button" hidden>Cancel</button>
   </section>
   <div class="workspace">
     <section class="board-panel" aria-label="Sudoku workspace">
@@ -55,12 +56,10 @@ $('#app').innerHTML = `
 
         <p id="dig-summary" class="muted"></p>
         <h3 id="difficulty"></h3><p id="rating-summary" class="muted"></p>
-        <details><summary>How this estimate is calculated</summary><p class="muted">We sum the imported sudokUI technique scores, add 5 per thermometer-bound reduction and 1,000 per backtracking trial. The level uses the hardest technique and the imported score thresholds; any trial is Extreme. This is an engine-based estimate, not a calibrated human difficulty or an official HoDoKu rating.</p><p id="technique-summary" class="muted"></p></details>
+        <details><summary>How this estimate is calculated</summary><p class="muted">We sum the imported sudokUI technique scores, add 5 per thermometer-bound reduction and 10,000 per Brute force use. The level uses the hardest technique and the imported score thresholds; any trial is Extreme. This is an engine-based estimate, not a calibrated human difficulty or an official HoDoKu rating.</p><p id="technique-summary" class="muted"></p></details>
         <button id="walkthrough" class="outline full">View solution walkthrough</button>
       </section>
 
-      <section class="card solver-card"><h2>Puzzle check</h2><div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div><button id="check" class="outline full">Check puzzle</button><button id="cancel" class="text-button full" hidden>Cancel</button></section>
-      <section class="rules"><div class="rules-icon">i</div><div><h3>The rules are simple.</h3><p id="variant-rules"></p><p class="rule-note">Thermometers can turn, including diagonally.</p></div></section>
     </aside>
   </div>
   <section class="bottom-actions"><div><button id="new" class="text-button">＋ New puzzle</button><button id="example" class="text-button">Load example</button></div><div><button id="import" class="text-button">↓ Import</button><button id="export" class="text-button">↑ Export</button></div></section>
@@ -110,8 +109,7 @@ function render() {
   for (const v of ['thermo', 'slow'] as const) {
     const b = $<HTMLButtonElement>(`#${v}-variant`); b.classList.toggle('active', puzzle.variant === v); b.setAttribute('aria-pressed', String(puzzle.variant === v)); b.disabled = !!busy;
   }
-  $('#variant-rules').textContent = puzzle.variant === 'slow' ? 'Normal sudoku rules apply. Starting at the bulb, digits along each Slow Thermo must increase or stay the same. At least one thermometer must have an equal consecutive pair in the completed grid.' : 'Normal sudoku rules apply. Starting at the bulb, digits along each thermometer must strictly increase.';
-  for (const id of ['generate', 'check', 'reveal', 'copy-image']) $<HTMLButtonElement>(`#${id}`).disabled = !!busy;
+  for (const id of ['generate', 'reveal', 'copy-image']) $<HTMLButtonElement>(`#${id}`).disabled = !!busy;
   $('#grid-actions').hidden = !puzzle.givens.some(Boolean) && !puzzle.thermos.length;
   $('#reveal').textContent = revealed ? 'Hide solution' : 'Reveal solution';
   $('#reveal').setAttribute('aria-pressed', String(revealed));
@@ -133,7 +131,7 @@ function render() {
     $('#stat-score').textContent = String(a.score); $('#stat-hardest').textContent = a.hardest;
     $('#dig-summary').textContent = `${s.attempts} layout attempt(s). Tested ${s.pairsTested} clue orbits and removed ${s.pairsRemoved}. No remaining rotational pair can be removed while keeping a unique solution.`;
     $('#difficulty').textContent = `${a.level} · ${a.score} points (estimated)`;
-    $('#rating-summary').textContent = `Hardest step: ${a.hardest}. ${a.guesses} backtracking trial(s), ${a.backtracks} rollback(s).`;
+    $('#rating-summary').textContent = `Hardest step: ${a.hardest}. ${a.guesses} Brute force use(s), ${a.backtracks} rollback(s).`;
     $('#technique-summary').textContent = Object.entries(a.techniques).map(([name, count]) => `${name}: ${count}`).join(' · ');
     $<HTMLButtonElement>('#walkthrough').disabled = !!busy;
     if (frame && slide !== null) {
@@ -196,7 +194,6 @@ function confirmChange(title: string, action: () => void) {
 }
 $('#confirm-no').onclick = () => $<HTMLDialogElement>('#confirm').close();
 $('#generate').onclick = () => run('generate');
-$('#check').onclick = () => run('check');
 $('#reveal').onclick = () => {
   slide = null;
   if (revealed) { revealed = false; render(); }

@@ -43,7 +43,7 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   at most 9 cells. Rotational symmetry requires an even count; non-overlapping
   paths must fit within 81 cells. Invalid combinations are explained before
   generation. Other difficult selections may reach the time budget without a puzzle.
-- **Check puzzle:** checks uniqueness using the original givens and paths.
+- Use the **Import grid** page to check uniqueness with the original givens and paths.
 - **Reveal / hide solution:** below the grid, reveals only a verified unique
   solution. Hiding restores exactly the original puzzle. The solution is held
   separately; reveal does not modify givens, exported JSON, or saved data.
@@ -133,7 +133,7 @@ The current board is retained on failure.
 ### Difficulty estimate
 
 `src/walkthrough.ts` sums imported sudokUI technique weights, adds 5 for each
-thermometer reduction round and 1,000 for each backtracking trial, including
+thermometer reduction round and 10,000 for each Brute force use, including
 failed trials. The highest technique level is promoted using the imported
 total-score thresholds. Any trial makes the level Extreme. The UI exposes the
 score, level, hardest technique, technique counts, trial count, and rollbacks.

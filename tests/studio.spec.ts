@@ -52,7 +52,8 @@ test('options above the grid, retired controls removed, manual entry blocked', a
   await page.goto('/');
   for (const label of optionLabels) await expect(page.getByLabel(label, { exact: true })).toBeChecked();
   for (const text of ['SUDOKU STUDIO', 'YOUR CANVAS · 9 × 9', 'THE TOOLKIT', 'Give me a hint']) await expect(page.getByText(text, { exact: false })).toHaveCount(0);
-  await expect(page.locator('.intro, #keypad, [data-tool]')).toHaveCount(0);
+  await expect(page.locator('.intro, #keypad, [data-tool], .solver-card, .rules, #check, #variant-rules')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Puzzle check', exact: true })).toHaveCount(0);
   const options = await page.locator('.settings-card').boundingBox(), board = await page.locator('#board').boundingBox();
   expect(options!.y + options!.height).toBeLessThan(board!.y);
   const before = await page.locator('.cell').allTextContents();
