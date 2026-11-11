@@ -1,12 +1,16 @@
 export type Variant = 'thermo' | 'slow';
-export interface Puzzle { version: 1; values: number[]; givens: number[]; thermos: number[][]; variant: Variant; noThermoGivens: boolean }
+export interface GenerationOptions { symmetricGivens: boolean; symmetricThermos: boolean; noOverlap: boolean }
+export const DEFAULT_GENERATION: GenerationOptions = { symmetricGivens: true, symmetricThermos: true, noOverlap: true };
+export const MIN_THERMO_LENGTH = 3;
+export interface Puzzle extends GenerationOptions { version: 1; values: number[]; givens: number[]; thermos: number[][]; variant: Variant; noThermoGivens: boolean }
 export const adjacent = (a: number, b: number) => a !== b && Math.abs(Math.floor(a / 9) - Math.floor(b / 9)) <= 1 && Math.abs(a % 9 - b % 9) <= 1;
-export function blank(variant: Variant = 'thermo', noThermoGivens = true): Puzzle { return { version: 1, values: Array(81).fill(0), givens: Array(81).fill(0), thermos: [], variant, noThermoGivens }; }
+export function blank(variant: Variant = 'thermo', noThermoGivens = true): Puzzle { return { version: 1, values: Array(81).fill(0), givens: Array(81).fill(0), thermos: [], variant, noThermoGivens, ...DEFAULT_GENERATION }; }
 export function validatePuzzle(input: unknown): Puzzle {
   const p = input as Puzzle;
   if (!p || p.version !== 1) throw new Error('Unsupported puzzle format. Expected version 1.');
   if (p.variant !== undefined && !['thermo', 'slow'].includes(p.variant)) throw new Error('Unknown thermometer variant.');
   if (p.noThermoGivens !== undefined && typeof p.noThermoGivens !== 'boolean') throw new Error('Invalid generation setting.');
+  for (const key of Object.keys(DEFAULT_GENERATION) as (keyof GenerationOptions)[]) if (p[key] !== undefined && typeof p[key] !== 'boolean') throw new Error('Invalid generation setting.');
   const variant = p.variant ?? 'thermo';
   for (const values of [p.values, p.givens]) {
     if (!Array.isArray(values) || values.length !== 81 || values.some(v => !Number.isInteger(v) || v < 0 || v > 9)) throw new Error('A grid must contain exactly 81 digits from 0 to 9.');
@@ -16,7 +20,7 @@ export function validatePuzzle(input: unknown): Puzzle {
   for (const t of p.thermos) {
     if (!Array.isArray(t) || t.length < 2 || t.length > (variant === 'slow' ? 81 : 9) || new Set(t).size !== t.length || t.some(c => !Number.isInteger(c) || c < 0 || c > 80) || t.some((c, i) => i > 0 && !adjacent(t[i - 1], c))) throw new Error(`Thermometers need 2–${variant === 'slow' ? 81 : 9} distinct, adjacent cells, starting at the bulb.`);
   }
-  return structuredClone({ ...p, variant, noThermoGivens: p.noThermoGivens ?? true });
+  return structuredClone({ ...p, variant, noThermoGivens: p.noThermoGivens ?? true, symmetricGivens: p.symmetricGivens ?? true, symmetricThermos: p.symmetricThermos ?? true, noOverlap: p.noOverlap ?? true });
 }
 export const hasRepeatedStep = (values: ArrayLike<number>, thermos: number[][]) => thermos.some(t => t.some((c, i) => i > 0 && values[c] !== 0 && values[c] === values[t[i - 1]]));
 export function example(): Puzzle {

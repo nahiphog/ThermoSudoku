@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generate } from './generator';
+import { generate, hasOverlap, rotatePath } from './generator';
 import { blank, hasRepeatedStep, validatePuzzle } from './puzzle';
 import { candidates, conflicts, solve } from './solver';
 import { UNITS } from './vendor/sudokui/board';
@@ -27,6 +27,10 @@ describe('variants and generation', () => {
   for (const variant of ['thermo', 'slow'] as const) for (const seed of [1, 7, 91]) {
     it(`generates a unique ${variant} puzzle without any givens on paths or bulbs (seed ${seed})`, () => {
       const p = generate(variant, true, seeded(seed));
+      expect(p.thermos.every(t => t.length >= 3)).toBe(true);
+      expect(hasOverlap(p.thermos)).toBe(false);
+      for (const t of p.thermos) expect(p.thermos).toContainEqual(rotatePath(t));
+      p.givens.forEach((d, c) => expect(!!d).toBe(!!p.givens[80 - c]));
       expect(validatePuzzle(p)).toEqual(p);
       for (const c of p.thermos.flat()) { expect(p.givens[c]).toBe(0); expect(p.values[c]).toBe(0); }
       const r = solve(p); expect(r.exhausted).toBe(true); expect(r.solutions).toHaveLength(1);
@@ -45,6 +49,26 @@ describe('variants and generation', () => {
   it('never returns an unverified puzzle on generation timeout', () => {
     expect(() => generate('slow', true, seeded(1), 0)).toThrow(/budget/);
   });
+  it('detects shared cells, branching, crossing diagonals and self-crossings', () => {
+    expect(hasOverlap([[0, 10, 11], [1, 9, 18]])).toBe(true);
+    expect(hasOverlap([[0, 1, 2], [0, 9, 18]])).toBe(true);
+    expect(hasOverlap([[0, 10, 1, 9]])).toBe(true);
+    expect(hasOverlap([[0, 1, 2], [78, 79, 80]])).toBe(false);
+  });
+  for (const variant of ['thermo', 'slow'] as const) for (const symmetricGivens of [true, false]) for (const symmetricThermos of [true, false]) for (const noOverlap of [true, false]) {
+    it(`honors independent generation options: ${variant}, givens=${symmetricGivens}, thermos=${symmetricThermos}, disjoint=${noOverlap}`, () => {
+      const options = { symmetricGivens, symmetricThermos, noOverlap };
+      const p = generate(variant, true, seeded(123), 10000, options);
+      expect(p).toMatchObject(options);
+      expect(p.thermos.every(t => t.length >= 3)).toBe(true);
+      for (const c of p.thermos.flat()) expect(p.givens[c]).toBe(0);
+      if (symmetricGivens) p.givens.forEach((d, c) => expect(!!d).toBe(!!p.givens[80 - c]));
+      if (symmetricThermos) for (const t of p.thermos) expect(p.thermos).toContainEqual(rotatePath(t));
+      if (noOverlap) expect(hasOverlap(p.thermos)).toBe(false);
+      const result = solve(p); expect(result.exhausted).toBe(true); expect(result.solutions).toHaveLength(1);
+      if (variant === 'slow') expect(hasRepeatedStep(result.solutions[0], p.thermos)).toBe(true);
+    }, 15000);
+  }
   it('rejects an entirely strict completed Slow Thermo puzzle', () => {
     const p = generate('thermo', true, seeded(3));
     p.values = solve(p).solutions[0]; p.variant = 'slow';

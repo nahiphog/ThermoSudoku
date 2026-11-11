@@ -1,193 +1,170 @@
 import './style.css';
-import { adjacent, blank, example, validatePuzzle, type Puzzle } from './puzzle';
-import { candidates, conflicts, type Hint, type SolveResult } from './solver';
-import { digitsOf } from './vendor/sudokui/board';
+import { blank, example, validatePuzzle, type Puzzle } from './puzzle';
+import { conflicts, type SolveResult } from './solver';
+import { gridImage } from './grid-image';
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
-let puzzle = example(), tool: 'select' | 'thermo' | 'erase' = 'select';
-let selected = 0, draft: number[] = [], showCandidates = false, past: string[] = [], future: string[] = [];
-let worker: Worker | null = null, busy = false, dragging = false, dragExtended = false;
-let hintMasks: number[] | null = null;
-let status = 'Your next puzzle starts here.', detail = 'Generate a puzzle or draw thermometers, then check your creation.';
-try { const saved = localStorage.getItem('thermo-studio-v1'); if (saved) puzzle = validatePuzzle(JSON.parse(saved)); } catch { /* Invalid or unavailable storage never prevents editing. */ }
+let puzzle = example(), solution: number[] | null = null, revealed = false, selected = 0;
+let worker: Worker | null = null, busy: 'generate' | 'check' | 'solve' | null = null;
+let status = 'Ready to generate.', detail = 'Choose your puzzle options above the grid.';
+try {
+  const saved = localStorage.getItem('thermo-studio-v1');
+  if (saved) puzzle = validatePuzzle(JSON.parse(saved));
+  puzzle.values = [...puzzle.givens];
+} catch { /* Storage is optional. */ }
 
 $('#app').innerHTML = `
-  <header class="topbar"><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><span class="header-label">SUDOKU STUDIO</span><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a></header>
-  <main>
-  <div class="workspace"><section class="board-panel" aria-label="Sudoku workspace"><div class="board-heading"><strong>Puzzle maker</strong><span id="board-label">YOUR CANVAS · 9 × 9</span></div>
-  <div id="board" class="board" role="group" aria-label="Thermo Sudoku grid"><svg id="thermos" viewBox="0 0 900 900" aria-hidden="true"></svg><div id="cells" class="cells"></div></div>
-  <div class="board-footer"><span id="filled"></span><div><button id="undo" class="text-button" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redo" class="text-button" title="Redo (Ctrl+Shift+Z)">↷ Redo</button></div></div>
-  <p class="keyboard-help">Manual digit and pencil-mark entry is disabled. Use arrow keys to move.</p></section>
-  <aside><section class="card settings-card"><div class="section-label">PUZZLE OPTIONS</div><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div><label class="toggle-row"><input id="no-thermo-givens" type="checkbox"><span>No givens on thermometers</span></label><p class="muted">Generation setting. Includes every bulb and path cell. Turn off to allow givens on thermometers.</p><button id="generate" class="primary full">Generate puzzle</button></section><section class="card tools-card"><div class="section-label">01 / THE TOOLKIT</div><h2 id="tool-title">Make it your own.</h2><div class="tool-grid"><button data-tool="select" class="tool active"><span>⌖</span>Select cell</button><button data-tool="thermo" class="tool"><span>♧</span>Thermometer</button><button data-tool="erase" class="tool"><span>⌫</span>Erase thermo</button></div><p id="tool-help" class="muted"></p><button id="finish" class="outline full" hidden>Finish thermometer</button><label class="toggle-row"><input id="candidates" type="checkbox"><span>Show candidates</span><span class="tiny-label">AUTO</span></label></section>
-  <section class="card solver-card"><div class="section-label">02 / FIND THE LOGIC</div><h2>A nudge, or the answer.</h2><div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div><button id="check" class="primary full">Check puzzle <span>↗</span></button><div class="button-pair"><button id="hint" class="outline">Give me a hint</button><button id="solve" class="outline">Solve puzzle</button></div><button id="cancel" class="text-button full" hidden>Cancel solver</button></section>
-  <section class="rules"><div class="rules-icon">i</div><div><h3>The rules are simple.</h3><p id="variant-rules">Normal sudoku rules apply. Starting at the “bulb”, digits placed along each marked thermometer must form a <strong>strictly increasing sequence.</strong></p><p class="rule-note">Thermometers can turn, including diagonally.</p></div></section>
-  </aside></div><section class="bottom-actions"><div><button id="new" class="text-button">＋ New puzzle</button><button id="example" class="text-button">Load example</button><button id="reset" class="text-button">Reset entries</button></div><div><button id="import" class="text-button">↓ Import</button><button id="export" class="text-button">↑ Export</button></div></section>
-  <footer><span>Made for curious minds.</span><span>Thermo Sudoku · GPL-3.0 · <a href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">sudokUI techniques</a></span></footer></main>
-  <dialog id="transfer"><form method="dialog"><div class="dialog-heading"><h2 id="transfer-title">Import puzzle</h2><button aria-label="Close dialog" class="text-button">✕</button></div></form><p id="transfer-help">Paste a Thermo Sudoku JSON puzzle below.</p><textarea id="puzzle-json" spellcheck="false" aria-label="Puzzle JSON"></textarea><p id="import-error" role="alert"></p><button id="load-json" class="primary full">Import puzzle</button><button id="download" class="primary full" hidden>Download JSON</button></dialog>
-  <dialog id="confirm"><h2 id="confirm-title">Start a new puzzle?</h2><p>This replaces the current board. You can undo this change.</p><div class="button-pair"><button id="confirm-no" class="outline">Keep editing</button><button id="confirm-yes" class="primary">Continue</button></div></dialog>`;
+<header class="topbar"><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a></header>
+<main>
+  <section class="card settings-card" aria-label="Puzzle options">
+    <div class="settings-heading"><h1>Puzzle options</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
+    <div class="generation-options">
+      <label><input id="no-thermo-givens" type="checkbox"> No givens on thermometers</label>
+      <label><input id="symmetric-givens" type="checkbox"> Rotationally symmetric givens</label>
+      <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
+      <label><input id="no-overlap" type="checkbox"> No overlapping or branching thermometers</label>
+    </div>
+    <div class="generate-row"><p class="muted">Settings apply to the next generated puzzle. Symmetry is a 180° rotation. Each thermometer has at least 3 cells, including its bulb.</p><button id="generate" class="primary">Generate puzzle</button></div>
+  </section>
+  <div class="workspace">
+    <section class="board-panel" aria-label="Sudoku workspace">
+      <div class="board-heading"><strong id="puzzle-title">Thermo Sudoku</strong><span id="view-label">Puzzle</span></div>
+      <div id="board" class="board" role="group" aria-label="Thermo Sudoku grid"><svg id="thermos" viewBox="0 0 900 900" aria-hidden="true"></svg><div id="cells" class="cells"></div></div>
+      <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
+      <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
+    </section>
+    <aside>
+      <section class="card solver-card"><h2>Puzzle check</h2><div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div><button id="check" class="outline full">Check puzzle</button><button id="cancel" class="text-button full" hidden>Cancel</button></section>
+      <section class="rules"><div class="rules-icon">i</div><div><h3>The rules are simple.</h3><p id="variant-rules"></p><p class="rule-note">Thermometers can turn, including diagonally.</p></div></section>
+    </aside>
+  </div>
+  <section class="bottom-actions"><div><button id="new" class="text-button">＋ New puzzle</button><button id="example" class="text-button">Load example</button></div><div><button id="import" class="text-button">↓ Import</button><button id="export" class="text-button">↑ Export</button></div></section>
+  <footer><span>Made for curious minds.</span><span>Thermo Sudoku · GPL-3.0 · <a href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">sudokUI techniques</a></span></footer>
+</main>
+<dialog id="transfer"><form method="dialog"><div class="dialog-heading"><h2 id="transfer-title">Import puzzle</h2><button aria-label="Close dialog" class="text-button">✕</button></div></form><p id="transfer-help"></p><textarea id="puzzle-json" spellcheck="false" aria-label="Puzzle JSON"></textarea><p id="import-error" role="alert"></p><button id="load-json" class="primary full">Import puzzle</button><button id="download" class="primary full" hidden>Download JSON</button></dialog>
+<dialog id="confirm"><h2 id="confirm-title"></h2><p>This replaces the current puzzle.</p><div class="button-pair"><button id="confirm-no" class="outline">Keep puzzle</button><button id="confirm-yes" class="primary">Continue</button></div></dialog>`;
 
-document.querySelectorAll<HTMLElement>('.tool > span').forEach(icon => icon.setAttribute('aria-hidden', 'true'));
-$('.tool[data-tool="thermo"] > span').innerHTML = '<svg width="27" height="27" viewBox="0 0 28 28" aria-hidden="true"><path d="M8 21L20 9V4" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="8" cy="21" r="5" fill="currentColor"/></svg>';
 const cells = Array.from({ length: 81 }, (_, i) => {
   const b = document.createElement('button'); b.className = 'cell'; b.dataset.cell = String(i);
-  b.style.gridArea = `${Math.floor(i / 9) + 1} / ${i % 9 + 1}`;
   if (i % 9 === 2 || i % 9 === 5) b.classList.add('box-right');
   if (Math.floor(i / 9) === 2 || Math.floor(i / 9) === 5) b.classList.add('box-bottom');
+  b.onclick = () => { selected = i; render(); };
   $('#cells').append(b); return b;
 });
+const settings = {
+  'no-thermo-givens': 'noThermoGivens', 'symmetric-givens': 'symmetricGivens',
+  'symmetric-thermos': 'symmetricThermos', 'no-overlap': 'noOverlap',
+} as const;
 function save() { try { localStorage.setItem('thermo-studio-v1', JSON.stringify(puzzle)); } catch { /* Storage is optional. */ } }
-function cancel() { worker?.terminate(); worker = null; busy = false; }
+function cancel() { worker?.terminate(); worker = null; busy = null; }
 function message(title: string, body: string) { status = title; detail = body; }
-function commit(change: () => void) {
-  cancel(); hintMasks = null; past.push(JSON.stringify(puzzle)); if (past.length > 100) past.shift(); future = []; change();
-  message('Board updated.', 'Check your puzzle to test whether it has exactly one solution.'); save(); render();
+function replace(next: Puzzle) {
+  cancel(); puzzle = next; puzzle.values = [...puzzle.givens]; solution = null; revealed = false; save(); render();
 }
+const visibleValues = () => revealed && solution ? solution : puzzle.givens;
 function render() {
-  const bad = conflicts(puzzle), state = candidates(puzzle);
+  const values = visibleValues(), bad = conflicts({ ...puzzle, values });
   cells.forEach((b, i) => {
-    const v = puzzle.values[i];
     b.classList.toggle('selected', i === selected); b.classList.toggle('given', !!puzzle.givens[i]); b.classList.toggle('conflict', bad.has(i));
-    b.classList.toggle('same-digit', !!v && v === puzzle.values[selected] && i !== selected);
     b.tabIndex = i === selected ? 0 : -1;
-    b.setAttribute('aria-label', `Row ${Math.floor(i / 9) + 1}, column ${i % 9 + 1}${v ? `, ${v}${puzzle.givens[i] ? ', given' : ''}` : ', empty'}${bad.has(i) ? ', conflict' : ''}`);
+    b.setAttribute('aria-label', `Row ${Math.floor(i / 9) + 1}, column ${i % 9 + 1}, ${values[i] || 'empty'}${puzzle.givens[i] ? ', given' : ''}`);
     b.setAttribute('aria-pressed', String(i === selected));
-    b.innerHTML = v ? `<span class="digit">${v}</span>` : showCandidates && state.valid ? `<span class="pencil">${Array.from({ length: 9 }, (_, n) => `<span>${digitsOf(hintMasks?.[i] ?? state.grid.cands[i]).includes(n + 1) ? n + 1 : ''}</span>`).join('')}</span>` : '';
+    b.innerHTML = values[i] ? `<span class="digit">${values[i]}</span>` : '';
   });
-  const point = (c: number) => `${(c % 9) * 100 + 50},${Math.floor(c / 9) * 100 + 50}`;
-  $('#thermos').innerHTML = [...puzzle.thermos, ...(draft.length ? [draft] : [])].map((t, i) => `<g class="${i === puzzle.thermos.length ? 'draft' : ''}"><polyline points="${t.map(point).join(' ')}"/><circle cx="${t[0] % 9 * 100 + 50}" cy="${Math.floor(t[0] / 9) * 100 + 50}" r="34"/></g>`).join('');
-  $('#filled').textContent = `${puzzle.values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
-  $('#status-title').textContent = busy ? 'Following the logic…' : bad.size ? 'These digits conflict.' : status;
-  $('#status-detail').textContent = busy ? 'Checking Sudoku and every thermometer together.' : bad.size ? 'Red cells break Sudoku or the selected thermometer rule.' : detail;
-  $('#status').classList.toggle('error', bad.size > 0);
-  $('#thermo-variant').classList.toggle('active', puzzle.variant === 'thermo');
-  $('#slow-variant').classList.toggle('active', puzzle.variant === 'slow');
-  $('#thermo-variant').setAttribute('aria-pressed', String(puzzle.variant === 'thermo'));
-  $('#slow-variant').setAttribute('aria-pressed', String(puzzle.variant === 'slow'));
-  $<HTMLInputElement>('#no-thermo-givens').checked = puzzle.noThermoGivens;
-  $('#variant-rules').textContent = puzzle.variant === 'slow'
-    ? 'Normal sudoku rules apply. Starting at the bulb, digits along each Slow Thermo must increase or stay the same. At least one thermometer must have an equal consecutive pair in the completed grid.'
-    : 'Normal sudoku rules apply. Starting at the bulb, digits along each thermometer must strictly increase.';
-  document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach(b => { b.classList.toggle('active', b.dataset.tool === tool); b.setAttribute('aria-pressed', String(b.dataset.tool === tool)); });
-  $('#tool-help').textContent = tool === 'thermo' ? 'Click the bulb, then adjacent cells. Or drag a path. Diagonal turns are welcome. Press Enter to finish; Esc to cancel.' : tool === 'erase' ? 'Click a cell on a thermometer to remove it. At overlaps, the most recently drawn path is removed first.' : 'Select a cell to inspect it. Manual digit and pencil-mark entry is currently disabled.';
-  $('#finish').hidden = !draft.length;
-  $('#candidates').setAttribute('aria-label', 'Show candidates');
-  $('#undo').toggleAttribute('disabled', !past.length); $('#redo').toggleAttribute('disabled', !future.length);
-  for (const id of ['check', 'hint', 'solve', 'generate']) $<HTMLButtonElement>(`#${id}`).disabled = busy || draft.length > 0;
+  const point = (c: number) => `${c % 9 * 100 + 50},${Math.floor(c / 9) * 100 + 50}`;
+  $('#thermos').innerHTML = puzzle.thermos.map(t => `<g><polyline points="${t.map(point).join(' ')}"/><circle cx="${t[0] % 9 * 100 + 50}" cy="${Math.floor(t[0] / 9) * 100 + 50}" r="34"/></g>`).join('');
+  $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
+  $('#puzzle-title').textContent = puzzle.variant === 'slow' ? 'Slow Thermo Sudoku' : 'Thermo Sudoku';
+  $('#view-label').textContent = revealed ? 'Solution' : 'Puzzle';
+  $('#status-title').textContent = busy === 'generate' ? 'Generating your puzzle…' : busy ? 'Checking every constraint…' : status;
+  $('#status-detail').textContent = busy ? 'Looking for exactly one solution with your selected rules.' : detail;
+  for (const [id, key] of Object.entries(settings)) { $<HTMLInputElement>(`#${id}`).checked = puzzle[key]; $<HTMLInputElement>(`#${id}`).disabled = !!busy; }
+  for (const v of ['thermo', 'slow'] as const) {
+    const b = $<HTMLButtonElement>(`#${v}-variant`); b.classList.toggle('active', puzzle.variant === v); b.setAttribute('aria-pressed', String(puzzle.variant === v)); b.disabled = !!busy;
+  }
+  $('#variant-rules').textContent = puzzle.variant === 'slow' ? 'Normal sudoku rules apply. Starting at the bulb, digits along each Slow Thermo must increase or stay the same. At least one thermometer must have an equal consecutive pair in the completed grid.' : 'Normal sudoku rules apply. Starting at the bulb, digits along each thermometer must strictly increase.';
+  for (const id of ['generate', 'check', 'reveal', 'copy-image']) $<HTMLButtonElement>(`#${id}`).disabled = !!busy;
+  $('#grid-actions').hidden = !puzzle.givens.some(Boolean) && !puzzle.thermos.length;
+  $('#reveal').textContent = revealed ? 'Hide solution' : 'Reveal solution';
+  $('#reveal').setAttribute('aria-pressed', String(revealed));
   $('#cancel').hidden = !busy;
 }
-function extend(c: number) {
-  if (draft.at(-1) === c) return;
-  if (draft.length > 1 && draft.at(-2) === c) { draft.pop(); render(); return; }
-  if (!draft.length || (draft.length < (puzzle.variant === 'slow' ? 81 : 9) && !draft.includes(c) && adjacent(draft.at(-1)!, c))) { draft.push(c); render(); }
-  else { message('Keep the path connected.', 'Use a distinct neighboring cell. Strict Thermo allows nine cells; Slow Thermo allows up to 81.'); render(); }
-}
-function finish() {
-  if (draft.length < 2) { draft = []; message('Thermometer canceled.', 'A thermometer needs at least two cells.'); render(); return; }
-  const t = [...draft]; draft = [];
-  if (puzzle.thermos.some(x => JSON.stringify(x) === JSON.stringify(t))) { message('That thermometer already exists.', 'Draw another path or generate a new puzzle.'); render(); return; }
-  if (puzzle.thermos.length >= 100) { message('Thermometer limit reached.', 'Remove a thermometer before adding another.'); render(); return; }
-  commit(() => puzzle.thermos.push(t));
-}
-function selectCell(c: number) {
-  selected = c;
-  if (tool === 'thermo') extend(c);
-  else if (tool === 'erase') {
-    const index = puzzle.thermos.findLastIndex(t => t.includes(c));
-    if (index >= 0) commit(() => puzzle.thermos.splice(index, 1));
-  }
-  render();
-}
-$('#cells').addEventListener('pointerdown', e => {
-  const c = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]'); if (!c || e.button !== 0) return;
-  if (tool === 'thermo') { e.preventDefault(); dragging = true; dragExtended = false; }
-  selectCell(Number(c.dataset.cell));
-});
-window.addEventListener('pointermove', e => {
-  if (!dragging || tool !== 'thermo') return;
-  const c = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-cell]');
-  if (c && Number(c.dataset.cell) !== draft.at(-1)) { const before = draft.join(); extend(Number(c.dataset.cell)); if (before !== draft.join()) dragExtended = true; }
-});
-window.addEventListener('pointerup', () => { if (dragging && dragExtended) finish(); dragging = false; });
-window.addEventListener('pointercancel', () => { dragging = false; draft = []; render(); });
-$('#cells').addEventListener('click', e => { if (e.detail === 0) { const c = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]'); if (c) selectCell(Number(c.dataset.cell)); } });
-document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach(b => b.onclick = () => { tool = b.dataset.tool as typeof tool; draft = []; render(); });
-$('#finish').onclick = finish;
-function changeVariant(variant: Puzzle['variant']) {
-  if (variant === puzzle.variant) return;
-  if (variant === 'thermo' && puzzle.thermos.some(t => t.length > 9)) {
-    message('Shorten the long thermometers first.', 'Strict Thermo supports at most nine cells per path.'); render(); return;
-  }
-  draft = []; commit(() => { puzzle.variant = variant; puzzle.values = [...puzzle.givens]; });
-}
-$('#thermo-variant').onclick = () => changeVariant('thermo');
-$('#slow-variant').onclick = () => changeVariant('slow');
-$<HTMLInputElement>('#no-thermo-givens').onchange = e => {
-  const checked = (e.target as HTMLInputElement).checked;
-  commit(() => { puzzle.noThermoGivens = checked; });
+for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).onchange = e => {
+  puzzle[key] = (e.target as HTMLInputElement).checked; save(); message('Generation options updated.', 'These settings apply when you generate your next puzzle.'); render();
 };
-$<HTMLInputElement>('#candidates').onchange = e => { showCandidates = (e.target as HTMLInputElement).checked; render(); };
-function undo(redo = false) {
-  const from = redo ? future : past, to = redo ? past : future;
-  const next = from.pop(); if (!next) return; cancel(); hintMasks = null; to.push(JSON.stringify(puzzle)); puzzle = JSON.parse(next); draft = []; message(redo ? 'Change restored.' : 'Change undone.', 'Your puzzle is saved on this device.'); save(); render();
-}
-$('#undo').onclick = () => undo(); $('#redo').onclick = () => undo(true);
+for (const v of ['thermo', 'slow'] as const) $(`#${v}-variant`).onclick = () => {
+  if (puzzle.variant === v) return;
+  if (v === 'thermo' && puzzle.thermos.some(t => t.length > 9)) { message('This path is too long for strict Thermo.', 'Start a new puzzle before switching variants.'); render(); return; }
+  puzzle.variant = v; solution = null; revealed = false; save(); message('Variant updated.', 'Generate a puzzle with the selected rules.'); render();
+};
 window.addEventListener('keydown', e => {
-  if (document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT'].includes((e.target as HTMLElement).tagName)) return;
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(e.shiftKey); return; }
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[0-9]$/.test(e.key) || ['Backspace', 'Delete'].includes(e.key)) { e.preventDefault(); return; }
   const moves: Record<string, number> = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 };
   if (e.key in moves) { e.preventDefault(); selected = (selected + moves[e.key] + 81) % 81; render(); cells[selected].focus(); }
-  if (e.key === 'Enter' && draft.length) { e.preventDefault(); finish(); }
-  if (e.key === 'Escape') { draft = []; render(); }
 });
-function run(type: 'check' | 'hint' | 'solve' | 'generate') {
-  if (busy || draft.length) return;
-  busy = true; render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
-  worker.onerror = () => { cancel(); message('Solver could not start.', 'Please reload the page and try again.'); render(); };
+function run(type: 'check' | 'solve' | 'generate') {
+  if (busy) return;
+  busy = type; render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
+  worker.onerror = () => { cancel(); message('Could not complete the request.', 'Please try again.'); render(); };
   worker.onmessage = event => {
     cancel();
-    if (event.data.error) { message('Check this position.', event.data.error); render(); return; }
+    if (event.data.error) { message('Could not complete the request.', event.data.error); render(); return; }
     if (type === 'generate') {
-      commit(() => { puzzle = validatePuzzle(event.data.result); tool = 'select'; });
-      message('A new puzzle, with one solution.', puzzle.variant === 'slow' ? 'The unique completed grid includes at least one repeated step on a Slow Thermo.' : 'Every thermometer strictly increases in the unique completed grid.');
-    } else if (type === 'hint') {
-      const h = event.data.result as Hint | null;
-      if (h) {
-        if (h.values.some((v, i) => v !== puzzle.values[i])) commit(() => { puzzle.values = h.values; tool = 'select'; });
-        hintMasks = h.candidates;
-        showCandidates = true; $<HTMLInputElement>('#candidates').checked = true;
-        message(h.technique, h.description);
-      } else message('No logical step found.', 'The imported techniques found no next step. Try Solve puzzle to search, or check your entries.');
+      replace(validatePuzzle(event.data.result));
+      message('A new puzzle, with one solution.', 'Your generation settings are satisfied. Copy the grid or reveal its solution below.');
     } else {
       const r = event.data.result as SolveResult;
-      const title = r.solutions.length >= 2 ? 'More than one solution.' : !r.exhausted ? 'Search limit reached.' : r.solutions.length ? 'Exactly one solution.' : 'No solution exists.';
-      const body = r.solutions.length >= 2 ? 'Add thermometers or generate a new puzzle to get a unique solution.' : !r.exhausted ? 'The five-second search budget ended. Uniqueness is not established; add constraints and try again.' : r.solutions.length ? 'Every row, column, box, and thermometer checks out.' : 'These constraints cannot all be satisfied. Review the givens and thermometer directions.';
-      if (type === 'solve' && r.solutions.length) commit(() => { puzzle.values = r.solutions[0]; tool = 'select'; });
-      message(title, body + (type === 'solve' && r.solutions.length ? ' A solution is now on the board. Undo to return to your entries.' : ''));
+      if (r.exhausted && r.solutions.length === 1) {
+        solution = r.solutions[0]; if (type === 'solve') revealed = true;
+        message('Exactly one solution.', revealed ? 'Hide solution restores the original puzzle without changing its givens.' : 'Every Sudoku and thermometer constraint checks out.');
+      } else {
+        solution = null; revealed = false;
+        message(r.solutions.length > 1 ? 'More than one solution.' : !r.exhausted ? 'Search limit reached.' : 'No solution exists.', 'A solution is revealed only when uniqueness is verified. Try generating a new puzzle.');
+      }
     }
     render();
   };
-  // Check the author's clues; solving and hints use the current playing position.
-  worker.postMessage({ type, puzzle: type === 'check' ? { ...puzzle, values: [...puzzle.givens] } : puzzle });
+  worker.postMessage({ type, puzzle: { ...puzzle, values: [...puzzle.givens] } });
 }
-$('#generate').onclick = () => {
-  $('#confirm-title').textContent = 'Generate a new puzzle?'; $<HTMLDialogElement>('#confirm').showModal();
-  $('#confirm-yes').onclick = () => { $<HTMLDialogElement>('#confirm').close(); run('generate'); };
-};
-$('#check').onclick = () => run('check'); $('#hint').onclick = () => run('hint'); $('#solve').onclick = () => run('solve');
-$('#cancel').onclick = () => { cancel(); message('Search canceled.', 'Your puzzle is unchanged.'); render(); };
 function confirmChange(title: string, action: () => void) {
   $('#confirm-title').textContent = title; $<HTMLDialogElement>('#confirm').showModal();
-  $('#confirm-yes').onclick = () => { $<HTMLDialogElement>('#confirm').close(); draft = []; commit(action); };
+  $('#confirm-yes').onclick = () => { $<HTMLDialogElement>('#confirm').close(); action(); };
 }
 $('#confirm-no').onclick = () => $<HTMLDialogElement>('#confirm').close();
-$('#new').onclick = () => confirmChange('Start a new puzzle?', () => { puzzle = blank(puzzle.variant, puzzle.noThermoGivens); tool = 'select'; });
-$('#example').onclick = () => confirmChange('Load the example puzzle?', () => { puzzle = example(); tool = 'select'; });
-$('#reset').onclick = () => confirmChange('Reset your solving entries?', () => { puzzle.values = [...puzzle.givens]; });
+$('#generate').onclick = () => confirmChange('Generate a new puzzle?', () => run('generate'));
+$('#check').onclick = () => run('check');
+$('#reveal').onclick = () => {
+  if (revealed) { revealed = false; render(); }
+  else if (solution) { revealed = true; render(); }
+  else run('solve');
+};
+$('#cancel').onclick = () => { cancel(); message('Canceled.', 'Your current puzzle is unchanged.'); render(); };
+$('#new').onclick = () => confirmChange('Start a new puzzle?', () => {
+  const next = blank(puzzle.variant, puzzle.noThermoGivens);
+  for (const key of Object.values(settings)) next[key] = puzzle[key];
+  replace(next); message('Ready to generate.', 'Choose your options and generate a puzzle.'); render();
+});
+$('#example').onclick = () => confirmChange('Load the example puzzle?', () => { replace(example()); message('Example loaded.', 'This fixed example predates the new generation settings.'); render(); });
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$('#copy-image').onclick = async () => {
+  const png = gridImage(puzzle, [...visibleValues()]);
+  try {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Clipboard images unavailable');
+    // Pass the promise immediately to preserve the user's activation in Safari.
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    message('Grid image copied.', 'Paste the PNG into a message or document. It matches the currently visible grid.');
+  } catch {
+    try { download(await png, 'thermo-sudoku.png'); message('Grid image downloaded.', 'Clipboard access was unavailable. The same PNG was saved as a file instead.'); }
+    catch { message('Could not create the grid image.', 'Please try again in a browser with canvas support.'); }
+  }
+  render();
+};
 function transfer(exporting: boolean) {
-  $('#transfer-title').textContent = exporting ? 'Take your puzzle with you.' : 'Import a puzzle.';
-  $('#transfer-help').textContent = exporting ? 'Givens, entries, and thermometer paths are all included.' : 'Paste a Thermo Sudoku JSON puzzle below. Import replaces the board and can be undone.';
+  $('#transfer-title').textContent = exporting ? 'Export puzzle' : 'Import puzzle';
+  $('#transfer-help').textContent = exporting ? 'Includes givens, thermometer paths, and generation preferences. Revealing the solution never changes the exported puzzle.' : 'Paste a Thermo Sudoku JSON puzzle. Import replaces the current puzzle.';
   $<HTMLTextAreaElement>('#puzzle-json').value = exporting ? JSON.stringify(puzzle, null, 2) : '';
   $<HTMLTextAreaElement>('#puzzle-json').readOnly = exporting;
   $('#load-json').hidden = exporting; $('#download').hidden = !exporting; $('#import-error').textContent = '';
@@ -195,13 +172,8 @@ function transfer(exporting: boolean) {
 }
 $('#import').onclick = () => transfer(false); $('#export').onclick = () => transfer(true);
 $('#load-json').onclick = () => {
-  try {
-    const p = validatePuzzle(JSON.parse($<HTMLTextAreaElement>('#puzzle-json').value));
-    draft = []; commit(() => { puzzle = p; tool = 'select'; }); $<HTMLDialogElement>('#transfer').close();
-  } catch (e) { $('#import-error').textContent = e instanceof Error ? e.message : 'Invalid puzzle JSON.'; }
+  try { replace(validatePuzzle(JSON.parse($<HTMLTextAreaElement>('#puzzle-json').value))); $<HTMLDialogElement>('#transfer').close(); message('Puzzle imported.', 'Check the puzzle or reveal its solution.'); render(); }
+  catch (e) { $('#import-error').textContent = e instanceof Error ? e.message : 'Invalid puzzle JSON.'; }
 };
-$('#download').onclick = () => {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(puzzle, null, 2)], { type: 'application/json' }));
-  const a = document.createElement('a'); a.href = url; a.download = 'thermo-sudoku.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
+$('#download').onclick = () => download(new Blob([JSON.stringify(puzzle, null, 2)], { type: 'application/json' }), 'thermo-sudoku.json');
 render();
