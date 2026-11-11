@@ -1,0 +1,451 @@
+{
+  "diggingOrders": 2,
+  "node": "v24.19.0",
+  "benchmarkBudgetMs": 30000,
+  "results": [
+    {
+      "variant": "thermo",
+      "logicalOnly": false,
+      "preset": "default",
+      "seed": 7,
+      "ms": 106.7926,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.45669999999995525,
+            "fillThermos": 2.0716999999999643,
+            "fillGrid": 5.988700000000108,
+            "uniqueness": 29.65800000000104,
+            "logical": 0,
+            "walkthrough": 66.86649999999986
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 34,
+          "cacheHits": 0,
+          "searchNodes": 200,
+          "fillNodes": 36
+        },
+        "givens": 20,
+        "thermometers": 6,
+        "thermoCells": 18,
+        "elapsedMs": 106.34730000000013,
+        "attempts": 1,
+        "pairsTested": 32,
+        "pairsRemoved": 22
+      },
+      "score": 51859,
+      "guesses": 5
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": false,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 15.876899999999978,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.21600000000012187,
+            "fillThermos": 0.7227000000000317,
+            "fillGrid": 2.672900000000027,
+            "uniqueness": 8.5150000000001,
+            "logical": 0,
+            "walkthrough": 3.2653999999999996
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 27,
+          "cacheHits": 0,
+          "searchNodes": 56,
+          "fillNodes": 40
+        },
+        "givens": 21,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 15.845800000000054,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 14
+      },
+      "score": 285,
+      "guesses": 0
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": false,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 48.523099999999886,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.08200000000010732,
+            "fillThermos": 0.4669000000001233,
+            "fillGrid": 1.8718999999998687,
+            "uniqueness": 6.540600000001405,
+            "logical": 0,
+            "walkthrough": 39.131599999999935
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 33,
+          "cacheHits": 0,
+          "searchNodes": 134,
+          "fillNodes": 33
+        },
+        "givens": 16,
+        "thermometers": 4,
+        "thermoCells": 20,
+        "elapsedMs": 48.50080000000003,
+        "attempts": 1,
+        "pairsTested": 31,
+        "pairsRemoved": 23
+      },
+      "score": 31526,
+      "guesses": 3
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": true,
+      "preset": "default",
+      "seed": 7,
+      "ms": 47.04470000000015,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.1632999999999356,
+            "fillThermos": 1.0885000000000673,
+            "fillGrid": 1.411100000000033,
+            "uniqueness": 23.136600000000726,
+            "logical": 16.746799999999894,
+            "walkthrough": 3.820899999999938
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 2,
+          "diggingPasses": 3,
+          "uniquenessCalls": 97,
+          "cacheHits": 0,
+          "searchNodes": 376,
+          "fillNodes": 70
+        },
+        "givens": 18,
+        "thermometers": 6,
+        "thermoCells": 22,
+        "elapsedMs": 47.01800000000003,
+        "attempts": 2,
+        "pairsTested": 30,
+        "pairsRemoved": 21
+      },
+      "score": 357,
+      "guesses": 0
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": true,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 12.258000000000038,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.08989999999994325,
+            "fillThermos": 0.26340000000004693,
+            "fillGrid": 1.7952000000000226,
+            "uniqueness": 4.742499999999836,
+            "logical": 2.125500000000102,
+            "walkthrough": 2.940800000000081
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 27,
+          "cacheHits": 0,
+          "searchNodes": 56,
+          "fillNodes": 40
+        },
+        "givens": 21,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 12.214300000000094,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 14
+      },
+      "score": 285,
+      "guesses": 0
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": true,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 66.93730000000005,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.2399000000000342,
+            "fillThermos": 1.3559000000000196,
+            "fillGrid": 2.6861000000003514,
+            "uniqueness": 15.622999999998683,
+            "logical": 42.714600000000246,
+            "walkthrough": 3.651399999999967
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 2,
+          "diggingPasses": 3,
+          "uniquenessCalls": 96,
+          "cacheHits": 0,
+          "searchNodes": 268,
+          "fillNodes": 68
+        },
+        "givens": 18,
+        "thermometers": 4,
+        "thermoCells": 20,
+        "elapsedMs": 66.9072000000001,
+        "attempts": 2,
+        "pairsTested": 31,
+        "pairsRemoved": 22
+      },
+      "score": 327,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": false,
+      "preset": "default",
+      "seed": 7,
+      "ms": 81.37310000000002,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.15260000000012042,
+            "fillThermos": 2.2243000000000848,
+            "fillGrid": 4.160100000000057,
+            "uniqueness": 16.888000000000602,
+            "logical": 0,
+            "walkthrough": 57.471900000000005
+          },
+          "layoutFailures": 2,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 34,
+          "cacheHits": 0,
+          "searchNodes": 162,
+          "fillNodes": 43
+        },
+        "givens": 21,
+        "thermometers": 6,
+        "thermoCells": 18,
+        "elapsedMs": 81.34159999999997,
+        "attempts": 3,
+        "pairsTested": 32,
+        "pairsRemoved": 21
+      },
+      "score": 41475,
+      "guesses": 4
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": false,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 9.858400000000074,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.10869999999999891,
+            "fillThermos": 0.4408000000000811,
+            "fillGrid": 1.3558000000000447,
+            "uniqueness": 5.234300000000076,
+            "logical": 0,
+            "walkthrough": 2.4254000000000815
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 27,
+          "cacheHits": 0,
+          "searchNodes": 60,
+          "fillNodes": 44
+        },
+        "givens": 20,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 9.830600000000004,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 15
+      },
+      "score": 414,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": false,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 47.33590000000004,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.05709999999999127,
+            "fillThermos": 0.4781000000000404,
+            "fillGrid": 1.1229000000000724,
+            "uniqueness": 10.806499999999915,
+            "logical": 0,
+            "walkthrough": 34.52040000000011
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 33,
+          "cacheHits": 0,
+          "searchNodes": 232,
+          "fillNodes": 28
+        },
+        "givens": 16,
+        "thermometers": 4,
+        "thermoCells": 20,
+        "elapsedMs": 47.29970000000026,
+        "attempts": 1,
+        "pairsTested": 31,
+        "pairsRemoved": 23
+      },
+      "score": 71104,
+      "guesses": 7
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": true,
+      "preset": "default",
+      "seed": 7,
+      "ms": 55.066899999999805,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.17690000000038708,
+            "fillThermos": 0.5290999999997439,
+            "fillGrid": 2.2905000000000655,
+            "uniqueness": 17.627699999998185,
+            "logical": 29.143999999999778,
+            "walkthrough": 4.299399999999878
+          },
+          "layoutFailures": 2,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 1,
+          "diggingPasses": 2,
+          "uniquenessCalls": 66,
+          "cacheHits": 0,
+          "searchNodes": 230,
+          "fillNodes": 43
+        },
+        "givens": 20,
+        "thermometers": 6,
+        "thermoCells": 18,
+        "elapsedMs": 55.027000000000044,
+        "attempts": 3,
+        "pairsTested": 32,
+        "pairsRemoved": 22
+      },
+      "score": 464,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": true,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 12.185500000000047,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.062400000000252476,
+            "fillThermos": 0.8052999999999884,
+            "fillGrid": 2.2727999999997337,
+            "uniqueness": 3.9684000000002015,
+            "logical": 2.548000000000229,
+            "walkthrough": 2.228700000000117
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 0,
+          "diggingPasses": 1,
+          "uniquenessCalls": 27,
+          "cacheHits": 0,
+          "searchNodes": 60,
+          "fillNodes": 44
+        },
+        "givens": 20,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 12.152199999999993,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 15
+      },
+      "score": 414,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": true,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 55.652700000000095,
+      "stats": {
+        "profile": {
+          "stageMs": {
+            "layout": 0.13239999999996144,
+            "fillThermos": 0.9738999999999578,
+            "fillGrid": 1.8468000000002576,
+            "uniqueness": 30.26600000000144,
+            "logical": 17.712600000000293,
+            "walkthrough": 4.1095000000000255
+          },
+          "layoutFailures": 0,
+          "fillFailures": 0,
+          "nonUniqueLayouts": 0,
+          "logicalRejected": 2,
+          "diggingPasses": 3,
+          "uniquenessCalls": 98,
+          "cacheHits": 0,
+          "searchNodes": 573,
+          "fillNodes": 72
+        },
+        "givens": 18,
+        "thermometers": 4,
+        "thermoCells": 16,
+        "elapsedMs": 55.62720000000036,
+        "attempts": 2,
+        "pairsTested": 33,
+        "pairsRemoved": 24
+      },
+      "score": 917,
+      "guesses": 0
+    }
+  ]
+}

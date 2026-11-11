@@ -20,7 +20,9 @@ describe('six-stage generation', () => {
     const stages: number[] = [];
     const result = generateDetailed(variant, DEFAULT_GENERATION, p => stages.push(p.stage), seeded(7), 30000);
     const { puzzle: p, solution, analysis, stats } = result;
-    expect(stages.slice(-4)).toEqual([3, 4, 5, 6]);
+    // Digging/logical checks can repeat for different orders on one filled grid.
+    expect(stages.at(-1)).toBe(6);
+    for (const stage of [1, 2, 3, 4, 5]) expect(stages.lastIndexOf(stage)).toBeLessThan(stages.lastIndexOf(stage + 1));
     expect(p.thermos.length).toBeGreaterThanOrEqual(6); expect(hasOverlap(p.thermos)).toBe(false);
     for (const t of p.thermos) { expect(t.length).toBeGreaterThanOrEqual(3); expect(p.thermos).toContainEqual(rotatePath(t)); for (const c of t) expect(p.givens[c]).toBe(0); }
     expect(conflicts({ ...p, values: solution }).size).toBe(0);

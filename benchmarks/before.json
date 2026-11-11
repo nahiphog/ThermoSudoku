@@ -1,0 +1,223 @@
+{
+  "node": "v24.19.0",
+  "benchmarkBudgetMs": 30000,
+  "results": [
+    {
+      "variant": "thermo",
+      "logicalOnly": false,
+      "preset": "default",
+      "seed": 7,
+      "ms": 1617.2991000000002,
+      "stats": {
+        "givens": 20,
+        "thermometers": 6,
+        "thermoCells": 18,
+        "elapsedMs": 1616.6338,
+        "attempts": 1,
+        "pairsTested": 32,
+        "pairsRemoved": 22
+      },
+      "score": 82553,
+      "guesses": 8
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": false,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 334.451,
+      "stats": {
+        "givens": 20,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 334.41049999999996,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 15
+      },
+      "score": 344,
+      "guesses": 0
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": false,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 516.1457,
+      "stats": {
+        "givens": 18,
+        "thermometers": 4,
+        "thermoCells": 16,
+        "elapsedMs": 516.1082999999999,
+        "attempts": 2,
+        "pairsTested": 33,
+        "pairsRemoved": 24
+      },
+      "score": 21179,
+      "guesses": 2
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": true,
+      "preset": "default",
+      "seed": 7,
+      "ms": 1420.5908,
+      "stats": {
+        "givens": 20,
+        "thermometers": 6,
+        "thermoCells": 20,
+        "elapsedMs": 1420.5492000000004,
+        "attempts": 2,
+        "pairsTested": 31,
+        "pairsRemoved": 21
+      },
+      "score": 399,
+      "guesses": 0
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": true,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 426.884,
+      "stats": {
+        "givens": 20,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 426.84029999999984,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 15
+      },
+      "score": 344,
+      "guesses": 0
+    },
+    {
+      "variant": "thermo",
+      "logicalOnly": true,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 2581.7437999999993,
+      "stats": {
+        "givens": 16,
+        "thermometers": 4,
+        "thermoCells": 18,
+        "elapsedMs": 2581.6573,
+        "attempts": 8,
+        "pairsTested": 32,
+        "pairsRemoved": 24
+      },
+      "score": 695,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": false,
+      "preset": "default",
+      "seed": 7,
+      "ms": 467.01850000000013,
+      "stats": {
+        "givens": 22,
+        "thermometers": 6,
+        "thermoCells": 18,
+        "elapsedMs": 466.97399999999834,
+        "attempts": 3,
+        "pairsTested": 32,
+        "pairsRemoved": 21
+      },
+      "score": 821,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": false,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 253.1852999999992,
+      "stats": {
+        "givens": 20,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 253.15500000000065,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 15
+      },
+      "score": 934,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": false,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 200.9359999999997,
+      "stats": {
+        "givens": 18,
+        "thermometers": 4,
+        "thermoCells": 16,
+        "elapsedMs": 200.8864999999987,
+        "attempts": 4,
+        "pairsTested": 33,
+        "pairsRemoved": 24
+      },
+      "score": 722,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": true,
+      "preset": "default",
+      "seed": 7,
+      "ms": 326.8809999999994,
+      "stats": {
+        "givens": 22,
+        "thermometers": 6,
+        "thermoCells": 18,
+        "elapsedMs": 326.8061999999991,
+        "attempts": 3,
+        "pairsTested": 32,
+        "pairsRemoved": 21
+      },
+      "score": 821,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": true,
+      "preset": "asymmetric",
+      "seed": 91,
+      "ms": 176.32450000000063,
+      "stats": {
+        "givens": 20,
+        "thermometers": 5,
+        "thermoCells": 16,
+        "elapsedMs": 176.29199999999946,
+        "attempts": 1,
+        "pairsTested": 25,
+        "pairsRemoved": 15
+      },
+      "score": 934,
+      "guesses": 0
+    },
+    {
+      "variant": "slow",
+      "logicalOnly": true,
+      "preset": "longer",
+      "seed": 11,
+      "ms": 163.26910000000134,
+      "stats": {
+        "givens": 18,
+        "thermometers": 4,
+        "thermoCells": 16,
+        "elapsedMs": 163.23480000000018,
+        "attempts": 4,
+        "pairsTested": 33,
+        "pairsRemoved": 24
+      },
+      "score": 722,
+      "guesses": 0
+    }
+  ],
+  "sourceCommit": "cd5efef"
+}

@@ -1,4 +1,5 @@
-import { applyLogicalStep, conflicts, nextLogicalStep, propagate } from './solver';
+import { conflicts } from './solver';
+import { runLogical } from './logical-runner';
 import { hasRepeatedStep, type Puzzle } from './puzzle';
 import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount, setValue, type Grid } from './vendor/sudokui/board';
 import { LEVELS, LEVEL_MAX_SCORE, TECHS, type Level } from './vendor/sudokui/ratings';
@@ -25,19 +26,19 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
     if (rank > current || (rank === current && score > hardestWeight)) { result.level = level; result.hardest = name; hardestWeight = score; }
   };
   function search(g: Grid): Grid | null {
-    while (true) {
-      const before = [...g.cands];
-      if (!propagate(g, p.thermos, p.variant)) { add(g, 'contradiction', 'Contradiction', 'This trial leaves no legal completion: Sudoku candidates or thermometer order cannot be satisfied.'); return null; }
-      const removed = before.flatMap((mask, c) => digitsOf(mask & ~g.cands[c]).map(digit => ({ cell: c, digit })));
-      if (removed.length) {
+    const state = runLogical(g, p, deadline, {
+      thermo: removed => {
         add(g, 'thermo', 'Thermometer bounds', `Remove ${removed.length} candidates incompatible with ${p.variant === 'slow' ? 'nondecreasing' : 'strictly increasing'} thermometer order. Grey marks remain possible; crossed red marks were removed.`, [], removed);
         credit('Thermometer bounds', 5, 'Easy');
-      }
-      if (isSolved(g)) return p.variant !== 'slow' || hasRepeatedStep(g.values, p.thermos) ? g : null;
-      const step = nextLogicalStep(g); if (!step) break;
-      applyLogicalStep(g, step);
-      const info = TECHS[step.tech]; credit(info.name, info.score, info.level);
-      add(g, 'logic', info.name, step.description, step.placements, step.eliminations);
+      },
+      step: step => {
+        const info = TECHS[step.tech]; credit(info.name, info.score, info.level);
+        add(g, 'logic', info.name, step.description, step.placements, step.eliminations);
+      },
+    });
+    if (state === 'solved') return g;
+    if (state === 'contradiction') {
+      add(g, 'contradiction', 'Contradiction', 'This trial leaves no legal completion: Sudoku candidates or thermometer order cannot be satisfied.'); return null;
     }
     if (!allowBruteForce) throw new LogicalSolveStalled();
     let cell = -1, count = 10;

@@ -31,9 +31,10 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   No thermometer cell (including bulbs) contains a given; clue positions are
   rotationally symmetric and digging runs to completion without a clue target.
 - **Logical techniques only (no Brute force):** enabled by default; uncheck to disable. After
-  complete uniqueness-based digging, the generator attempts a walkthrough using
+  complete uniqueness-based digging, the generator runs a lightweight check using
   only supported logical techniques and thermometer deductions. If it stalls,
-  generation restarts with a new layout. Accepted
+  it tries another removal order on the same completed grid (at most two orders)
+  before restarting with a new layout. Every order still digs to pair-minimality. Accepted
   puzzles have zero Brute force uses and a complete logical walkthrough. This
   filter can take longer; it never silently returns an unrestricted
   puzzle. Construction and independent uniqueness verification may still use
@@ -108,8 +109,8 @@ and empty rectangles. This is a curated subset, not its entire catalogue.
 thermometers, and a minimum-candidate search that validates the thermo
 constraints at every node. It tries every supported logical finder before
 branching with backtracking. Search counts up to two solutions, runs in a
-dedicated worker, and normally stops after five seconds (generation supplies
-an unlimited budget instead). A timed-out search never
+dedicated worker, and normally stops after five seconds. Generation uses the
+separate fast engine described below with no overall deadline. A timed-out search never
 claims uniqueness or impossibility. Cancel terminates the worker. Standard
 Sudoku uniqueness techniques are not enabled for the variant.
 
@@ -140,6 +141,47 @@ clock. Individual filling attempts still restart when unproductive; these local
 retry budgets do not end generation. Uniqueness checking, digging, and walkthrough
 analysis receive no time limit. Explicit finite budgets remain available to tests
 and library callers; a timed-out check never counts as proof.
+
+### Generation performance and verification
+
+`src/fast-solver.ts` compiles each layout into directed thermometer edges and
+uses bitmask support tables, changed-cell propagation, Sudoku singles, and MRV
+search. Given a validated completed grid, it searches exhaustively for a different
+completion. A found alternative disproves uniqueness; only an exhausted search
+without alternatives proves uniqueness. The original solver remains available
+and is used as an independent oracle in differential tests.
+
+Each clue removal starts with fresh candidate domains. Exact uniqueness results
+are cached by clue mask only within one immutable layout/completion, capped at
+2,048 entries. A fresh uncached check and an explicit constraint audit gate the
+returned puzzle. Logical certification and walkthrough recording share one
+technique loop; only accepted puzzles allocate full walkthrough snapshots.
+Progress messages are throttled to 10 per second; the live timer and cancellation
+remain on the UI thread. No extra worker pool or more complex undo system was
+introduced: the measured single-worker changes already deliver a substantial gain.
+
+Run `npm run benchmark -- benchmarks/after.json 2` for the fixed 12-case corpus.
+The final argument chooses the maximum digging orders per construction (1–16).
+The harness uses a 30-second *benchmark-only* cap and records failures, rather than
+excluding them from results. Raw before/after data and retry-count experiments are
+in `benchmarks/`; `stats.profile` records per-stage time, retries, cache hits, and
+search-node counts without adding controls to the website.
+
+On the recorded local run (Node 24), all 12 cases completed before and after:
+
+| Sample | Before median | After median | Before slowest | After slowest |
+| --- | ---: | ---: | ---: | ---: |
+| All 12 cases | 381 ms | 43 ms | 2,582 ms | 104 ms |
+| Logical-only subset (6 cases) | 377 ms | 39 ms | 2,582 ms | 73 ms |
+
+Baseline source: `cd5efef`. These are small, seeded end-to-end samples on the same
+machine, not guaranteed browser timings. The optimized construction consumes
+randomness differently and can produce different puzzles for the same seed.
+The corpus covers both variants, logical-only on/off, symmetry on/off, and three
+count/length presets. With so few cases, the reported nearest-rank p95 in the JSON
+summary is the maximum, not a stable population percentile. Trials of 1, 2, 4,
+and 8 digging orders selected 2 for the default; the old 4-order trial is retained
+as `benchmarks/orders-4.json`.
 
 ### Difficulty estimate
 

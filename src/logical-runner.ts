@@ -1,0 +1,30 @@
+import { applyLogicalStep, conflicts, nextLogicalStep, propagate } from './solver';
+import { hasRepeatedStep, type Puzzle } from './puzzle';
+import { digitsOf, gridFromValues, isSolved, type Grid } from './vendor/sudokui/board';
+import type { CellDigit, Step } from './vendor/sudokui/steps';
+
+/** One technique ordering for both certification and explanatory replay.
+ * In check mode no board snapshots or elimination lists are allocated. */
+export function runLogical(g: Grid, p: Puzzle, deadline: number, observer?: {
+  thermo: (removed: CellDigit[]) => void;
+  step: (step: Step) => void;
+}): 'solved' | 'stalled' | 'contradiction' {
+  while (true) {
+    if (performance.now() >= deadline) throw new Error('Logical analysis budget reached.');
+    const before = observer ? [...g.cands] : null;
+    if (!propagate(g, p.thermos, p.variant)) return 'contradiction';
+    if (before) {
+      const removed = before.flatMap((mask, c) => digitsOf(mask & ~g.cands[c]).map(digit => ({ cell: c, digit })));
+      if (removed.length) observer!.thermo(removed);
+    }
+    if (isSolved(g)) return p.variant !== 'slow' || hasRepeatedStep(g.values, p.thermos) ? 'solved' : 'contradiction';
+    const step = nextLogicalStep(g);
+    if (!step) return 'stalled';
+    applyLogicalStep(g, step); observer?.step(step);
+  }
+}
+export function checkLogical(p: Puzzle, deadline = Infinity): number[] | null {
+  if (conflicts({ ...p, values: p.givens }).size) return null;
+  const g = gridFromValues(p.givens);
+  return runLogical(g, p, deadline) === 'solved' ? [...g.values] : null;
+}

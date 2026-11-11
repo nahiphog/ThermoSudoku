@@ -1,0 +1,34 @@
+{
+  "before": {
+    "all": {
+      "samples": 12,
+      "medianMs": 380.6675,
+      "p95Ms": 2581.7437999999993,
+      "totalMs": 8484.7288,
+      "completed": 12
+    },
+    "logicalOnly": {
+      "samples": 6,
+      "medianMs": 376.8824999999997,
+      "p95Ms": 2581.7437999999993,
+      "totalMs": 5095.693200000001,
+      "completed": 6
+    }
+  },
+  "after": {
+    "all": {
+      "samples": 12,
+      "medianMs": 43.19065000000012,
+      "p95Ms": 103.59249999999997,
+      "totalMs": 520.4179000000006,
+      "completed": 12
+    },
+    "logicalOnly": {
+      "samples": 6,
+      "medianMs": 38.7116000000002,
+      "p95Ms": 73.49189999999999,
+      "totalMs": 216.67830000000072,
+      "completed": 6
+    }
+  }
+}
