@@ -39,6 +39,12 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   filter can take longer; it never silently returns an unrestricted
   puzzle. Construction and independent uniqueness verification may still use
   backtracking internally. The preference persists locally and in JSON exports.
+- **No given cells:** optional, off by default. Remove every digit before checking
+  uniqueness; retry layouts until the thermometers alone determine a unique grid.
+  Logical-only certification still applies when selected. There is no fallback to
+  retaining clues. Turn off rotational thermometer symmetry: rotating any solution
+  of a symmetric, clue-free layout would produce a distinct valid solution. Search
+  may be lengthy or find no puzzle for the selected combination; Cancel remains available.
 - **Rotationally symmetric thermometers:** an optional layout setting, enabled
   by default. Every thermometer has a rotated counterpart with the bulb in the
   corresponding position and the same path direction. Digit values need not
@@ -47,7 +53,7 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   shared cells, shared bulbs, branching and diagonal crossings, including
   self-crossings. Legacy exclusion/overlap/clue-symmetry toggles no longer override
   the new generation workflow; imported puzzles remain readable.
-- Select exactly 1–30 thermometers and a minimum length of 2–11 cells, including
+- Select exactly 1–30 thermometers and a minimum length of 2–14 cells, including
   the bulb (defaults: 6 thermometers, minimum 3 cells). Strict Thermo permits
   at most 9 cells. Rotational symmetry requires an even count; non-overlapping
   paths must fit within 81 cells. Invalid combinations are explained before

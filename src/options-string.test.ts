@@ -28,7 +28,7 @@ it('explains impossible selections before attempting generation', () => {
   expect(generationError('slow', {...DEFAULT_GENERATION, thermometerCount: 2, minThermoLength: 11})).toBeNull();
 });
 it('draws exact custom counts with minimum lengths including long Slow Thermos', () => {
-  for (const [count, length] of [[1, 2], [4, 5], [2, 11], [30, 2]]) {
+  for (const [count, length] of [[1, 2], [4, 5], [2, 11], [1, 12], [1, 13], [1, 14], [30, 2]]) {
     const random = seeded(7); let paths: number[][] | null = null;
     for (let i = 0; i < 100 && !paths; i++) paths = drawLayout(false, random, count, length);
     expect(paths).not.toBeNull(); expect(paths!.length).toBe(count);

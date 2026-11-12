@@ -29,7 +29,8 @@ $('#app').innerHTML = `
     <div class="settings-heading"><h1>Puzzle options</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
     <div class="generation-options">
       <label>Number of thermometers <select id="thermometer-count">${Array.from({length:30}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}</select></label>
-      <label>Minimum thermometer length <select id="min-thermo-length">${Array.from({length:10}, (_, i) => `<option value="${i+2}">${i+2} cells</option>`).join('')}</select></label>
+      <label>Minimum thermometer length <select id="min-thermo-length">${Array.from({length:13}, (_, i) => `<option value="${i+2}">${i+2} cells</option>`).join('')}</select></label>
+      <label><input id="no-givens" type="checkbox"> No given cells</label>
       <label><input id="logical-only" type="checkbox"> Logical techniques only (no Brute force)</label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
     </div>
@@ -82,6 +83,7 @@ const numericSettings = { 'thermometer-count': 'thermometerCount', 'min-thermo-l
 const settings = {
   'symmetric-thermos': 'symmetricThermos',
   'logical-only': 'logicalOnly',
+  'no-givens': 'noGivens',
 } as const;
 function save() { try { localStorage.setItem('thermo-studio-v1', JSON.stringify(puzzle)); } catch { /* Storage is optional. */ } }
 function updateElapsed() {
@@ -144,7 +146,7 @@ function render() {
     $('#stat-givens').textContent = String(s.givens); $('#stat-thermos').textContent = String(s.thermometers);
     $('#stat-occupied').textContent = String(s.thermoCells); $('#stat-time').textContent = `${(s.elapsedMs / 1000).toFixed(2)} s`;
     $('#stat-score').textContent = String(a.score); $('#stat-hardest').textContent = a.hardest;
-    $('#dig-summary').textContent = `${s.attempts} layout attempt(s). Tested ${s.pairsTested} clue orbits and removed ${s.pairsRemoved}. No remaining rotational pair can be removed while keeping a unique solution.`;
+    $('#dig-summary').textContent = report.puzzle.noGivens ? 'No given cells. The thermometers alone determine the unique solution.' : `${s.attempts} layout attempt(s). Tested ${s.pairsTested} clue orbits and removed ${s.pairsRemoved}. No remaining rotational pair can be removed while keeping a unique solution.`;
     $('#difficulty').textContent = `${a.level} · ${a.score} points (estimated)`;
     $('#rating-summary').textContent = `Hardest step: ${a.hardest}. ${a.guesses} Brute force use(s), ${a.backtracks} rollback(s).`;
     $('#technique-summary').textContent = Object.entries(a.techniques).map(([name, count]) => `${name}: ${count}`).join(' · ');

@@ -1,6 +1,27 @@
 import { expect, test, type Page } from '@playwright/test';
 test.setTimeout(90000);
 const optionLabels = ['Rotationally symmetric thermometers'];
+test('extended lengths and no-givens options persist and explain incompatible settings', async ({ page }) => {
+  await page.goto('/');
+  for (const length of ['2', '3', '12', '13', '14']) await expect(page.locator(`#min-thermo-length option[value="${length}"]`)).toHaveCount(1);
+  await expect(page.locator('#no-givens')).not.toBeChecked();
+  await page.locator('#no-givens').check();
+  await expect(page.locator('#generation-error')).toContainText('symmetry');
+  await expect(page.locator('#generate')).toBeDisabled();
+  await page.locator('#symmetric-thermos').uncheck();
+  await page.locator('#thermometer-count').selectOption('2');
+  await page.locator('#min-thermo-length').selectOption('14');
+  await expect(page.locator('#generation-error')).toContainText('at most 9');
+  await page.locator('#slow-variant').click();
+  await expect(page.locator('#generate')).toBeEnabled();
+  await page.reload();
+  await expect(page.locator('#no-givens')).toBeChecked();
+  await expect(page.locator('#min-thermo-length')).toHaveValue('14');
+  await expect(page.locator('#generate')).toBeEnabled();
+  expect(await exported(page)).toMatchObject({ noGivens: true, minThermoLength: 14 });
+  await page.locator('#no-givens').uncheck(); await page.reload();
+  await expect(page.locator('#no-givens')).not.toBeChecked();
+});
 test('generation has a live timer and a single cancel button that restores the puzzle', async ({ page }) => {
   // Keep the worker pending to test time and cancellation without relying on puzzle difficulty.
   await page.addInitScript(() => {
@@ -51,7 +72,7 @@ test('custom generation options, statistics above grid, and clipboard string rou
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/');
   await expect(page.locator('#thermometer-count option')).toHaveCount(30);
-  await expect(page.locator('#min-thermo-length option')).toHaveCount(10);
+  await expect(page.locator('#min-thermo-length option')).toHaveCount(13);
   await expect(page.locator('#min-thermo-length')).toHaveValue('3');
   await page.locator('#thermometer-count').selectOption('30');
   await expect(page.locator('#generate')).toBeDisabled();

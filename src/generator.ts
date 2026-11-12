@@ -37,7 +37,7 @@ type Progress = (progress: GenerationProgress) => void;
 const budgetError = () => new Error('Generation budget reached before completing all uniqueness checks and digging. No unfinished puzzle was returned; please try again.');
 
 /** Step 1: geometry only. There are no digits or completed grids at this point. */
-export function drawLayout(symmetric: boolean, random = Math.random, count = 6, minLength = MIN_THERMO_LENGTH, maxLength = 11): number[][] | null {
+export function drawLayout(symmetric: boolean, random = Math.random, count = 6, minLength = MIN_THERMO_LENGTH, maxLength = 14): number[][] | null {
   if (count * minLength > 81 || (symmetric && count % 2)) return null;
   const paths: number[][] = [], occupied = new Uint8Array(81), diagonals = new Int8Array(64);
   let used = 0;
@@ -122,15 +122,15 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
   };
   const requestedOrders = tuning.diggingOrders ?? 2;
   if (!Number.isInteger(requestedOrders) || requestedOrders < 1 || requestedOrders > 16) throw new Error('Digging orders must be an integer from 1 to 16.');
-  const orders = logicalOnly ? requestedOrders : 1;
+  const orders = logicalOnly && !options.noGivens ? requestedOrders : 1;
   let attempts = 0;
   while (performance.now() < deadline) {
     attempts++;
     progress({ stage: 1, attempt: attempts, text: `Drawing ${count} non-overlapping thermometers of ${minLength}+ cells.` });
-    const paths = timed('layout', () => drawLayout(options.symmetricThermos, random, count, minLength, variant === 'thermo' ? 9 : 11));
+    const paths = timed('layout', () => drawLayout(options.symmetricThermos, random, count, minLength, variant === 'thermo' ? 9 : 14));
     if (!paths) { profile.layoutFailures++; continue; }
     const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths;
-    p.thermometerCount = count; p.minThermoLength = minLength; p.logicalOnly = logicalOnly;
+    p.thermometerCount = count; p.minThermoLength = minLength; p.logicalOnly = logicalOnly; p.noGivens = options.noGivens ?? false;
     const compiled = compileConstraints(paths, variant);
     if (variant === 'slow' && !compiled.repeats.length) { profile.layoutFailures++; continue; }
     const thermoCells = [...new Set(paths.flat())], thermoSet = new Set(thermoCells);
@@ -147,9 +147,9 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
       profile.uniquenessCalls++; profile.cacheHits += after.hits - before.hits; profile.searchNodes += after.nodes - before.nodes;
       if (!r.exhausted) throw budgetError(); return r.unique;
     });
-    progress({ stage: 4, attempt: attempts, text: 'Removing all thermometer digits and proving uniqueness.' });
+    progress({ stage: 4, attempt: attempts, text: options.noGivens ? 'Removing every given and checking whether the thermometers alone determine a unique solution.' : 'Removing all thermometer digits and proving uniqueness.' });
     const excluded = new Set(thermoCells.flatMap(c => [c, 80 - c]));
-    const startingGivens = solution.map((d, c) => excluded.has(c) ? 0 : d);
+    const startingGivens = solution.map((d, c) => options.noGivens || excluded.has(c) ? 0 : d);
     if (!unique(startingGivens)) { profile.nonUniqueLayouts++; continue; }
     // Try different minimal clue sets before throwing away a valid construction.
     for (let order = 0; order < orders; order++) {
@@ -175,6 +175,7 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
       if (!unique(p.givens, false) || !validCompletion(solution, paths, variant)) throw new Error('Final uniqueness verification failed.');
       if (paths.length !== count || paths.some(t => t.length < minLength) || hasOverlap(paths)
         || thermoCells.some(c => p.givens[c] !== 0)
+        || (options.noGivens && p.givens.some(Boolean))
         || p.givens.some((d, c) => !!d !== !!p.givens[80 - c] || (d !== 0 && d !== solution[c]))
         || (options.symmetricThermos && paths.some(t => !paths.some(other => other.length === t.length && other.every((c, i) => c === 80 - t[i]))))) {
         throw new Error('Final generation constraints did not match the requested options.');
