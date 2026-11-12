@@ -22,7 +22,7 @@ try {
 } catch { /* Storage is optional. */ }
 
 $('#app').innerHTML = `
-<header class="topbar"><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a></header>
+<header class="topbar"><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><div class="header-actions"><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a><button id="about" class="outline" aria-haspopup="dialog" aria-controls="about-dialog">About</button></div></header>
 <nav class="page-nav" aria-label="Pages"><a href="#maker">Puzzle maker</a><a href="#import-grid">Import grid</a></nav>
 <main id="maker-page">
   <section class="card settings-card" aria-label="Puzzle options">
@@ -69,8 +69,16 @@ $('#app').innerHTML = `
   <section class="bottom-actions"><div><button id="new" class="text-button">＋ New puzzle</button><button id="example" class="text-button">Load example</button></div><div><button id="import" class="text-button">↓ Import</button><button id="export" class="text-button">↑ Export</button></div></section>
   <footer><span>Made for curious minds.</span><span>Thermo Sudoku · GPL-3.0 · <a href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">sudokUI techniques</a></span></footer>
 </main>
+<dialog id="about-dialog" aria-labelledby="about-title">
+  <form method="dialog"><div class="dialog-heading"><h2 id="about-title">About the puzzles</h2><button aria-label="Close About" class="text-button" autofocus>✕</button></div></form>
+  <p>Both puzzles follow normal Sudoku rules: fill every row, column, and 3 × 3 box with the digits 1–9, without repeats. Read each thermometer from its round bulb toward its tip.</p>
+  <section aria-labelledby="about-thermo"><h3 id="about-thermo">Thermo Sudoku</h3><p>Digits must strictly increase along each thermometer. Every digit must be larger than the one before it; for example, 1 → 3 → 6 → 9.</p></section>
+  <section aria-labelledby="about-slow"><h3 id="about-slow">Slow Thermo Sudoku</h3><p>Digits may increase or stay the same along each thermometer, but must never decrease; for example, 1 → 3 → 3 → 6. Equal digits are allowed only when they do not share a row, column, or 3 × 3 box.</p><p>In this app, the completed grid must include at least one equal consecutive pair somewhere on a thermometer.</p></section>
+</dialog>
 <dialog id="transfer"><form method="dialog"><div class="dialog-heading"><h2 id="transfer-title">Import puzzle</h2><button aria-label="Close dialog" class="text-button">✕</button></div></form><p id="transfer-help"></p><textarea id="puzzle-json" spellcheck="false" aria-label="Puzzle JSON"></textarea><p id="import-error" role="alert"></p><button id="load-json" class="primary full">Import puzzle</button><button id="download" class="primary full" hidden>Download JSON</button></dialog>
 <dialog id="confirm"><h2 id="confirm-title"></h2><p>This replaces the current puzzle.</p><div class="button-pair"><button id="confirm-no" class="outline">Keep puzzle</button><button id="confirm-yes" class="primary">Continue</button></div></dialog>`;
+
+$('#about').onclick = () => $<HTMLDialogElement>('#about-dialog').showModal();
 
 const cells = Array.from({ length: 81 }, (_, i) => {
   const b = document.createElement('button'); b.className = 'cell'; b.dataset.cell = String(i);
