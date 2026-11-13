@@ -29,4 +29,6 @@
 
 .settings-heading .mode-switch{flex-wrap:wrap}.settings-heading{flex-wrap:wrap}.mode-switch button{white-space:normal}@media(max-width:480px){.settings-heading .mode-switch button{padding:8px 6px;min-width:0}}
 
+.workspace{grid-template-columns:minmax(0,670px);justify-content:center}.cell.bulb-path{background:#d9c8f34d;box-shadow:inset 0 0 0 2px #a68bc4}.cell.bulb-found{background:#b9e7cd88;box-shadow:inset 0 0 0 3px #237b4b}.cell.bulb-rejected{background:#f4c8ca66;outline:2px dashed #b23e4f;outline-offset:-4px}#walkthrough{margin-top:10px}
+
 .cell.step-reason{background:#d4eeea66;box-shadow:inset 0 0 0 2px #087f76}.cell.step-reason .removed-candidate{color:#a51e36}.cell.step-reason.selected{outline:2px solid #8570c0;outline-offset:-4px}

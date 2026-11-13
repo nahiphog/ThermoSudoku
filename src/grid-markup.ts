@@ -10,7 +10,7 @@ export function board(p: Puzzle, values: number[], differences: number[] = [], f
     const removed = frame?.eliminations.filter(e => e.cell === c).map(e => e.digit) ?? [];
     const candidates = frame ? digitsOf(frame.candidates[c]) : [];
     const marks = Array.from({ length: 9 }, (_, i) => `<span class="${removed.includes(i + 1) ? 'removed-candidate' : ''}">${removed.includes(i + 1) || candidates.includes(i + 1) ? i + 1 : ''}</span>`).join('');
-    const classes = ['cell', reasonCells.has(c) ? 'step-reason' : '', p.givens[c] ? 'given' : '', c % 9 === 2 || c % 9 === 5 ? 'box-right' : '', Math.floor(c / 9) === 2 || Math.floor(c / 9) === 5 ? 'box-bottom' : '', differences.includes(c) ? 'different-cell' : '', frame?.placements.some(e => e.cell === c) ? 'step-placement' : ''];
+    const classes = ['cell', reasonCells.has(c) ? 'step-reason' : '', bulbHighlight(frame, c), p.givens[c] ? 'given' : '', c % 9 === 2 || c % 9 === 5 ? 'box-right' : '', Math.floor(c / 9) === 2 || Math.floor(c / 9) === 5 ? 'box-bottom' : '', differences.includes(c) ? 'different-cell' : '', frame?.placements.some(e => e.cell === c) ? 'step-placement' : ''];
     return `<div class="${classes.join(' ')}" role="img" aria-label="Row ${Math.floor(c / 9) + 1}, column ${c % 9 + 1}, ${d || 'empty'}${differences.includes(c) ? ', differs between solutions' : ''}${reasonCells.has(c) ? ', strict inequality cell' : ''}">${d ? `<span class="digit">${d}</span>` : frame ? `<span class="pencil">${marks}</span>` : ''}</div>`;
   }).join('')}</div>`;
 }
@@ -19,4 +19,10 @@ export function thermometerMarkup(p: Puzzle, values: number[], known?: (number |
   const point = (c: number) => String(c % 9 * 100 + 50) + ',' + String(Math.floor(c / 9) * 100 + 50);
   const bulbs = displayBulbs(p, values, known);
   return p.thermos.map((t, i) => '<g><polyline points="' + t.map(point).join(' ') + '"/>' + (bulbs[i] === null ? '' : '<circle cx="' + (bulbs[i]! % 9 * 100 + 50) + '" cy="' + (Math.floor(bulbs[i]! / 9) * 100 + 50) + '" r="34"/>') + '</g>').join('');
+}
+
+export function bulbHighlight(frame: Frame | null | undefined, cell: number): string {
+  const finding = frame?.bulbFinding;
+  if (!finding?.path.includes(cell)) return '';
+  return cell === finding.bulb ? 'bulb-found' : cell === finding.rejected ? 'bulb-rejected' : 'bulb-path';
 }

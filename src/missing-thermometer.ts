@@ -29,7 +29,7 @@ export function gridDomains(g: Grid): number[] {
 }
 export function bulbFindingDescription(path: number[], cell: number, index: number): string {
   const other = cell === path[0] ? path.at(-1)! : path[0];
-  return `Thermometer ${index + 1}: place the bulb at ${cellName(cell)}. Starting at ${cellName(other)} cannot form a strictly increasing sequence using the current digits and candidates; only the direction from ${cellName(cell)} to ${cellName(other)} remains possible.`;
+  return `Thermometer ${index + 1}: place the bulb at ${cellName(cell)}. Starting at ${cellName(other)} cannot form a strictly increasing sequence using the current digits and candidates; only the direction from ${cellName(cell)} to ${cellName(other)} remains possible. The green outlined cell is the bulb, the red dashed cell is the ruled-out end, and the connecting path is highlighted.`;
 }
 export function displayBulbs(p: Puzzle, values: number[], known?: (number | null)[]): (number | null)[] {
   if (p.variant !== 'missing') return p.thermos.map(t => t[0]);

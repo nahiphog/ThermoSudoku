@@ -1,4 +1,4 @@
-import { thermometerMarkup } from './grid-markup';
+import { thermometerMarkup, bulbHighlight } from './grid-markup';
 import { generationControls } from './generation-controls';
 import { mountSimulationPage } from './simulation-page';
 import { mountNavigation } from './navigation';
@@ -54,18 +54,8 @@ $('#app').innerHTML = `
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
       <button id="copy-string" class="outline full">Copy puzzle string</button>
+      <button id="walkthrough" class="outline full" hidden>View solution walkthrough</button>
     </section>
-    <aside>
-      <section id="generation-report" class="card" hidden aria-label="Generation statistics">
-        <h2>Your generated puzzle</h2>
-
-        <p id="dig-summary" class="muted"></p>
-        <h3 id="difficulty"></h3><p id="rating-summary" class="muted"></p>
-        <details><summary>How this estimate is calculated</summary><p class="muted">We sum the imported sudokUI technique scores, add 5 per thermometer-bound reduction and 10,000 per Brute force use. The level uses the hardest technique and the imported score thresholds; any trial is Extreme. This is an engine-based estimate, not a calibrated human difficulty or an official HoDoKu rating.</p><p id="technique-summary" class="muted"></p></details>
-        <button id="walkthrough" class="outline full">View solution walkthrough</button>
-      </section>
-
-    </aside>
   </div>
   <section class="bottom-actions"><div><button id="new" class="text-button">＋ New puzzle</button><button id="example" class="text-button">Load example</button></div><div><button id="import" class="text-button">↓ Import</button><button id="export" class="text-button">↑ Export</button></div></section>
 </main>
@@ -119,6 +109,7 @@ function render() {
     b.tabIndex = i === selected ? 0 : -1;
     b.setAttribute('aria-label', `Row ${Math.floor(i / 9) + 1}, column ${i % 9 + 1}, ${values[i] || 'empty'}${puzzle.givens[i] ? ', given' : ''}${reasonCells.has(i) ? ', strict inequality cell' : ''}`);
     b.setAttribute('aria-pressed', String(i === selected));
+    for (const name of ['bulb-found', 'bulb-rejected', 'bulb-path']) b.classList.toggle(name, bulbHighlight(frame, i) === name);
     b.classList.toggle('step-reason', reasonCells.has(i));
     b.classList.toggle('step-placement', !!frame?.placements.some(p => p.cell === i));
     b.classList.toggle('step-elimination', !!frame?.eliminations.some(p => p.cell === i));
@@ -140,7 +131,7 @@ function render() {
   $('#reveal').textContent = revealed ? 'Hide solution' : 'Reveal solution';
   $('#reveal').setAttribute('aria-pressed', String(revealed));
   $<HTMLButtonElement>('#copy-image').disabled = !!busy || slide !== null;
-  $('#generation-report').hidden = !report;
+  $('#walkthrough').hidden = !report || slide !== null;
   $('#generation-stats').hidden = !report;
   const invalid = lengthsError ?? generationError(puzzle.variant, puzzle);
   $('#generation-error').textContent = invalid ?? '';
@@ -156,10 +147,6 @@ function render() {
     $('#stat-givens').textContent = String(s.givens); $('#stat-thermos').textContent = String(s.thermometers);
     $('#stat-occupied').textContent = String(s.thermoCells); $('#stat-time').textContent = `${(s.elapsedMs / 1000).toFixed(2)} s`;
     $('#stat-score').textContent = String(a.score); $('#stat-hardest').textContent = a.hardest;
-    $('#dig-summary').textContent = report.puzzle.noGivens ? 'No given cells. The thermometers alone determine the unique solution.' : `${s.attempts} layout attempt(s). Tested ${s.pairsTested} clue orbits and removed ${s.pairsRemoved}. No remaining rotational pair can be removed while keeping a unique solution.`;
-    $('#difficulty').textContent = `${a.level} · ${a.score} points (estimated)`;
-    $('#rating-summary').textContent = `Hardest step: ${a.hardest}. ${a.guesses} Brute force use(s), ${a.backtracks} rollback(s).`;
-    $('#technique-summary').textContent = Object.entries(a.techniques).map(([name, count]) => `${name}: ${count}`).join(' · ');
     $<HTMLButtonElement>('#walkthrough').disabled = !!busy;
     if (frame && slide !== null) {
       renderTechniqueTallies($('#technique-tallies'), a, index => {
@@ -214,7 +201,7 @@ function run(type: 'check' | 'solve' | 'generate') {
     if (type === 'generate') {
       const generated = event.data.result as GeneratedPuzzle;
       generated.stats.elapsedMs = generationElapsed ?? generated.stats.elapsedMs;
-      replace(validatePuzzle(generated.puzzle)); report = generated; solution = generated.solution;
+      replace(validatePuzzle(generated.puzzle)); report = generated; solution = generated.solution; slide = 0;
       message('A new puzzle, with one solution.', 'All six stages are complete. View the statistics and solution walkthrough.');
     } else {
       const r = event.data.result as SolveResult;

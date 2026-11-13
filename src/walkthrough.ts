@@ -8,7 +8,7 @@ import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount,
 import { LEVELS, LEVEL_MAX_SCORE, type Level } from './vendor/sudokui/ratings';
 import type { CellDigit } from './vendor/sudokui/steps';
 
-export interface Frame { title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
+export interface Frame { title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbFinding?: { path: number[]; bulb: number; rejected: number }; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
 export interface Analysis { frames: Frame[]; score: number; level: Level; hardest: string; guesses: number; backtracks: number; techniques: Record<string, number> }
 /** A replay of the actual solving process, including failed trials and rollback.
  * This is an estimate: upstream technique weights + 5 per thermo reduction +
@@ -34,7 +34,9 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
     const state = runLogical(g, p, deadline, {
       bulb: (index, cell) => {
         const info = TECHS.BULB_FINDING; credit(info.name, info.score, info.level);
-        add(g, 'bulb', info.name, bulbFindingDescription(p.thermos[index], cell, index));
+        const path = p.thermos[index];
+        add(g, 'bulb', info.name, bulbFindingDescription(path, cell, index));
+        result.frames.at(-1)!.bulbFinding = { path: [...path], bulb: cell, rejected: cell === path[0] ? path.at(-1)! : path[0] };
       },
       thermo: removed => {
         if (p.variant === 'slow') {

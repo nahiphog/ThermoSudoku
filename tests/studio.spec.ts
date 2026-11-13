@@ -58,7 +58,7 @@ test('logical-only preference persists and generates without Brute force', async
   await expect(page.locator('#logical-only')).toBeChecked();
   await generate(page);
   expect((await exported(page)).logicalOnly).toBe(true);
-  await expect(page.locator('#rating-summary')).toContainText('0 Brute force use(s)');
+  await expect(page.locator('#generation-report')).toHaveCount(0);
   await page.locator('#walkthrough').click();
   await expect(page.locator('#technique-tallies')).not.toContainText('Brute force');
   await page.locator('#slide-last').click();
@@ -102,10 +102,13 @@ test('custom generation options, statistics above grid, and clipboard string rou
   expect(restored.thermos).toEqual(original.thermos);
   expect(restored.variant).toBe(original.variant);
 });
-async function generate(page: Page) {
+async function generate(page: Page, keepWalkthrough = false) {
   await page.getByRole('button', { name: 'Generate puzzle', exact: true }).click();
   await expect(page.locator('#confirm')).not.toBeVisible();
   await expect(page.locator('#status-title')).toHaveText('A new puzzle, with one solution.', { timeout: 35000 });
+  await expect(page.locator('#walkthrough-panel')).toBeVisible();
+  await expect(page.locator('#slide-title')).toHaveText('Starting puzzle');
+  if (!keepWalkthrough) await page.locator('#close-walkthrough').click();
 }
 async function exported(page: Page) {
   await page.getByRole('button', { name: 'Export', exact: false }).click();
@@ -118,7 +121,7 @@ test('options above the grid, retired controls removed, manual entry blocked', a
   for (const text of ['SUDOKU STUDIO', 'YOUR CANVAS · 9 × 9', 'THE TOOLKIT', 'Give me a hint']) await expect(page.getByText(text, { exact: false })).toHaveCount(0);
   await expect(page.locator('.intro, #keypad, [data-tool], .solver-card, .rules, #check, #variant-rules')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Puzzle check', exact: true })).toHaveCount(0);
-  const options = await page.locator('.settings-card').boundingBox(), board = await page.locator('#board').boundingBox();
+  const options = await page.locator('#maker-page .settings-card').boundingBox(), board = await page.locator('#board').boundingBox();
   expect(options!.y + options!.height).toBeLessThan(board!.y);
   const before = await page.locator('.cell').allTextContents();
   for (const c of [0, 2]) {
@@ -164,17 +167,17 @@ test('thermometer symmetry preference persists and the six-stage report fits mob
   await expect(page.locator('#stat-thermos')).toHaveText(String(p.thermos.length));
   await expect(page.locator('#stat-occupied')).toHaveText(String(new Set(p.thermos.flat()).size));
   await expect(page.locator('#stat-time')).toContainText('s');
-  await expect(page.locator('#difficulty')).toContainText('estimated');
-  await expect(page.locator('#dig-summary')).toContainText('No remaining rotational pair');
+  await expect(page.locator('#generation-report')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  const options = await page.locator('.settings-card').boundingBox(), board = await page.locator('#board').boundingBox();
+  const options = await page.locator('#maker-page .settings-card').boundingBox(), board = await page.locator('#board').boundingBox();
   expect(options!.y + options!.height).toBeLessThan(board!.y);
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
 });
 test('walkthrough navigates from original puzzle to full solution without editing it', async ({ page }) => {
-  await page.goto('/'); await generate(page);
-  const original = await exported(page), before = await page.locator('.cell').allTextContents();
-  await page.getByRole('button', { name: 'View solution walkthrough' }).click();
+  await page.goto('/'); await generate(page, true);
+  const original = await exported(page);
+  const before = original.givens.map((d: number) => d ? String(d) : '');
+  await expect(page.locator('#generation-report')).toHaveCount(0);
   await expect(page.locator('#slide-title')).toHaveText('Starting puzzle');
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   await expect(page.locator('#technique-tallies tbody tr').first()).toBeVisible();

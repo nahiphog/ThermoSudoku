@@ -21,6 +21,9 @@ test('Missing Thermometer generation, reveal, image copy, and bulb walkthrough',
   await page.locator('#no-givens').uncheck();
   await page.locator('#generate').click();
   await expect(page.locator('#status-title')).toHaveText('A new puzzle, with one solution.', { timeout: 65000 });
+  await expect(page.locator('#walkthrough-panel')).toBeVisible();
+  await expect(page.locator('#generation-report')).toHaveCount(0);
+  await page.locator('#close-walkthrough').click();
   await expect(page.locator('#thermos polyline')).toHaveCount(2);
   await expect(page.locator('#thermos circle')).toHaveCount(0);
   await page.locator('#copy-image').click();
@@ -41,9 +44,13 @@ test('Missing Thermometer generation, reveal, image copy, and bulb walkthrough',
   await row.locator('button').first().click();
   await expect(page.locator('#slide-title')).toHaveText('Bulb finding');
   await expect(page.locator('#thermos circle')).toHaveCount(1);
+  await expect(page.locator('#board .bulb-found')).toHaveCount(1);
+  await expect(page.locator('#board .bulb-rejected')).toHaveCount(1);
+  await expect(page.locator('#board .bulb-path')).toHaveCount(1);
   await row.locator('button').last().click();
   await expect(page.locator('#thermos circle')).toHaveCount(2);
   await page.locator('#slide-first').click();
+  await expect(page.locator('#board .bulb-found, #board .bulb-rejected, #board .bulb-path')).toHaveCount(0);
   await expect(page.locator('#thermos circle')).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -61,6 +68,9 @@ test('import and simulation use Missing Thermometer and show resolved bulbs only
   await expect(page.locator('#import-status')).toHaveText('Exactly one solution.');
   await expect(page.locator('#import-completed circle')).toHaveCount(2);
   await expect(page.locator('#import-walk-board circle')).toHaveCount(0);
+  await page.locator('#import-tallies tbody tr').filter({ hasText: 'Bulb finding' }).locator('button').first().click();
+  await expect(page.locator('#import-walk-board .bulb-found')).toHaveCount(1);
+  await expect(page.locator('#import-walk-board .bulb-rejected')).toHaveCount(1);
   await checkTallyLinks(page, '#import-tallies', '#import-step-range', '#import-step-title', '#import-walk-board');
   await page.locator('#import-reveal').click();
   await expect(page.locator('#import-completed circle')).toHaveCount(0);
