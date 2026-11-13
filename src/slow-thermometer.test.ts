@@ -31,7 +31,25 @@ it('records the named technique, eliminations, explanation, and tallies', () => 
   expect(a.frames[0].strictInequalities).toBeUndefined();
   expect(a.frames.at(-1)!.strictInequalities).toBeUndefined();
   expect(a.techniques['Slow Thermometer bounds']).toBeGreaterThan(0);
-  expect(a.techniques['Thermometer bounds']).toBeUndefined();
+  for (const [index, step] of a.frames.entries()) {
+    if (!step.strictInequalities) continue;
+    const edges = step.strictInequalities;
+    const chain = [edges[0][0], ...edges.map(e => e[1])];
+    expect(new Set(chain).size).toBe(chain.length);
+    edges.forEach(([from, to], i) => {
+      expect(from).toBe(chain[i]);
+      expect(PEERS[from]).toContain(to);
+    });
+    expect(p.thermos.some(path => chain.every((c, i) => path.includes(c) && (!i || path.indexOf(chain[i - 1]) < path.indexOf(c))))).toBe(true);
+    expect(step.eliminations.every(e => chain.includes(e.cell))).toBe(true);
+    const previous = a.frames[index - 1];
+    expect(step.values).toEqual(previous.values);
+    for (let c = 0; c < 81; c++) {
+      const removed = step.eliminations.filter(e => e.cell === c).reduce((mask, e) => mask | bit(e.digit), 0);
+      expect(previous.candidates[c] & ~step.candidates[c]).toBe(removed);
+    }
+  }
+  expect(a.techniques['Slow Thermometer bounds']).toBe(a.frames.filter(f => f.title === 'Slow Thermometer bounds').length);
   const fast = fastSolve(p, 30000);
   expect(fast.exhausted).toBe(true); expect(fast.solutions).toHaveLength(1);
   expect(a.frames.at(-1)!.values).toEqual(fast.solutions[0]);

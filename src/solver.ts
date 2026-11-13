@@ -1,5 +1,5 @@
 import { missingSupports, gridDomains, bulbFindingDescription } from './missing-thermometer';
-import { applySlowThermometerBounds } from './slow-thermometer';
+import { applySlowThermometerBounds, type SlowBoundsDeduction } from './slow-thermometer';
 import { findPhistomefelRing } from './phistomefel-ring';
 import { bit, cloneGrid, digitsOf, gridFromValues, isBroken, isSolved, PEERS, popcount, setValue, type Grid } from './vendor/sudokui/board';
 import type { Step } from './techniques';
@@ -51,12 +51,12 @@ export function conflicts(p: Puzzle): Set<number> {
 /** Arc consistency for each directed edge, iterated across overlapping paths.
  * Fixed digits are singleton domains, so they constrain both directions.
  * No domain ever grows; contradictory cycles terminate with an empty domain. */
-export function propagate(g: Grid, thermos: number[][], variant: Variant = 'thermo'): boolean {
+export function propagate(g: Grid, thermos: number[][], variant: Variant = 'thermo', onSlowBounds?: (deduction: SlowBoundsDeduction) => void): boolean {
   let changed = true;
   while (changed) {
     changed = false;
     if (variant === 'slow') {
-      if (!applySlowThermometerBounds(g, thermos)) return false;
+      if (!applySlowThermometerBounds(g, thermos, onSlowBounds)) return false;
       continue;
     }
     if (variant === 'missing') {

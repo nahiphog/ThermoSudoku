@@ -1,5 +1,5 @@
 import { bulbFindingDescription } from './missing-thermometer';
-import { slowThermometerBoundsDescription, slowThermometerStrictPairs } from './slow-thermometer';
+import { slowBoundsDescription } from './slow-thermometer';
 import { TECHS } from './techniques';
 import { conflicts } from './solver';
 import { runLogical } from './logical-runner';
@@ -38,12 +38,15 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
         add(g, 'bulb', info.name, bulbFindingDescription(path, cell, index));
         result.frames.at(-1)!.bulbFinding = { path: [...path], bulb: cell, rejected: cell === path[0] ? path.at(-1)! : path[0] };
       },
+      slow: deduction => {
+        const info = TECHS.SLOW_THERMOMETER_BOUNDS;
+        const name = deduction.strict ? info.name : 'Thermometer bounds';
+        const pairs: [number, number][] | undefined = deduction.strict
+          ? deduction.chain.slice(1).map((c, i) => [deduction.chain[i], c]) : undefined;
+        add(g, 'thermo', name, slowBoundsDescription(deduction), [], deduction.eliminations, pairs);
+        credit(name, info.score, info.level);
+      },
       thermo: removed => {
-        if (p.variant === 'slow') {
-          const info = TECHS.SLOW_THERMOMETER_BOUNDS;
-          add(g, 'thermo', info.name, slowThermometerBoundsDescription(p.thermos, removed.map(e => e.cell)), [], removed, slowThermometerStrictPairs(p.thermos, removed.map(e => e.cell)));
-          credit(info.name, info.score, info.level); return;
-        }
         add(g, 'thermo', 'Thermometer bounds', `Remove ${removed.length} candidates incompatible with strictly increasing thermometer order. Grey marks remain possible; crossed red marks were removed.`, [], removed);
         credit('Thermometer bounds', 5, 'Easy');
       },

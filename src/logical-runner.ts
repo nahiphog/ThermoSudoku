@@ -1,3 +1,4 @@
+import type { SlowBoundsDeduction } from './slow-thermometer';
 import { applyLogicalStep, conflicts, nextLogicalStep, propagate } from './solver';
 import { hasRepeatedStep, type Puzzle } from './puzzle';
 import { digitsOf, gridFromValues, isSolved, type Grid } from './vendor/sudokui/board';
@@ -9,6 +10,7 @@ import { gridDomains, missingSupports } from './missing-thermometer';
  * In check mode no board snapshots or elimination lists are allocated. */
 export function runLogical(g: Grid, p: Puzzle, deadline: number, observer?: {
   thermo: (removed: CellDigit[]) => void;
+  slow?: (deduction: SlowBoundsDeduction) => void;
   step: (step: Step) => void;
   bulb?: (thermometer: number, cell: number) => void;
 }, bulbEnds: (number | null)[] = p.thermos.map(() => null)): 'solved' | 'stalled' | 'contradiction' {
@@ -28,8 +30,8 @@ export function runLogical(g: Grid, p: Puzzle, deadline: number, observer?: {
   while (true) {
     if (performance.now() >= deadline) throw new Error('Logical analysis budget reached.');
     if (!findBulbs()) return 'contradiction';
-    const before = observer ? [...g.cands] : null;
-    if (!propagate(g, p.thermos, p.variant)) return 'contradiction';
+    const before = observer && p.variant !== 'slow' ? [...g.cands] : null;
+    if (!propagate(g, p.thermos, p.variant, observer?.slow)) return 'contradiction';
     if (before) {
       const removed = before.flatMap((mask, c) => digitsOf(mask & ~g.cands[c]).map(digit => ({ cell: c, digit })));
       if (removed.length) observer!.thermo(removed);
