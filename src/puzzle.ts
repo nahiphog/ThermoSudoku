@@ -1,5 +1,5 @@
 export type Variant = 'thermo' | 'slow';
-export interface GenerationOptions { symmetricGivens: boolean; symmetricThermos: boolean; noOverlap: boolean; thermometerCount?: number; minThermoLength?: number; logicalOnly?: boolean; noGivens?: boolean }
+export interface GenerationOptions { symmetricGivens: boolean; symmetricThermos: boolean; noOverlap: boolean; thermometerCount?: number; thermoLengths?: number[]; minThermoLength?: number; logicalOnly?: boolean; noGivens?: boolean }
 export const DEFAULT_GENERATION: GenerationOptions = { symmetricGivens: true, symmetricThermos: true, noOverlap: true, thermometerCount: 6, minThermoLength: 3, logicalOnly: true, noGivens: false };
 export const MIN_THERMO_LENGTH = 3;
 export interface Puzzle extends GenerationOptions { version: 1; values: number[]; givens: number[]; thermos: number[][]; variant: Variant; noThermoGivens: boolean }
@@ -12,6 +12,7 @@ export function validatePuzzle(input: unknown): Puzzle {
   if (p.noThermoGivens !== undefined && typeof p.noThermoGivens !== 'boolean') throw new Error('Invalid generation setting.');
   for (const key of ['symmetricGivens', 'symmetricThermos', 'noOverlap', 'logicalOnly', 'noGivens'] as const) if (p[key] !== undefined && typeof p[key] !== 'boolean') throw new Error('Invalid generation setting.');
   for (const [value, max] of [[p.thermometerCount, 30], [p.minThermoLength, 14]] as const) if (value !== undefined && (!Number.isInteger(value) || value < (max === 30 ? 1 : 2) || value > max)) throw new Error('Invalid thermometer count or minimum length.');
+  if (p.thermoLengths !== undefined && (!Array.isArray(p.thermoLengths) || p.thermoLengths.length < 1 || p.thermoLengths.length > 30 || p.thermoLengths.some(n => !Number.isInteger(n) || n < 2 || n > 14))) throw new Error('Exact lengths must contain 1–30 whole numbers from 2 to 14.');
   const variant = p.variant ?? 'thermo';
   for (const values of [p.values, p.givens]) {
     if (!Array.isArray(values) || values.length !== 81 || values.some(v => !Number.isInteger(v) || v < 0 || v > 9)) throw new Error('A grid must contain exactly 81 digits from 0 to 9.');
@@ -33,7 +34,14 @@ export function example(): Puzzle {
 }
 
 export function generationError(variant: Variant, options: GenerationOptions): string | null {
-  const count = options.thermometerCount ?? 6, length = options.minThermoLength ?? 3;
+  if (options.thermoLengths !== undefined) {
+    const lengths = options.thermoLengths;
+    if (!Array.isArray(lengths) || lengths.length < 1 || lengths.length > 30 || lengths.some(n => !Number.isInteger(n) || n < 2 || n > 14)) return 'Enter 1–30 comma-separated lengths, each a whole number from 2 to 14.';
+    if (variant === 'thermo' && lengths.some(n => n > 9)) return 'Strict Thermo supports at most 9 cells. Choose Slow Thermo for longer paths.';
+    if (lengths.reduce((a, b) => a + b, 0) > 81) return 'The exact thermometer lengths need more than the 81 available cells.';
+    if (options.symmetricThermos && lengths.some(n => lengths.filter(v => v === n).length % 2)) return 'Rotational symmetry requires each length an even number of times. Adjust the lengths or turn off rotational thermometer symmetry.';
+  }
+  const count = options.thermoLengths?.length ?? options.thermometerCount ?? 6, length = options.thermoLengths ? Math.min(...options.thermoLengths) : options.minThermoLength ?? 3;
   if (!Number.isInteger(count) || count < 1 || count > 30 || !Number.isInteger(length) || length < 2 || length > 14) return 'Choose 1–30 thermometers and a minimum length of 2–14 cells.';
   if (variant === 'thermo' && length > 9) return 'Strict Thermo supports at most 9 cells. Choose Slow Thermo for longer paths.';
   if (count * length > 81) return count + ' non-overlapping thermometers of ' + length + '+ cells need at least ' + count * length + ' cells; the grid has 81.';

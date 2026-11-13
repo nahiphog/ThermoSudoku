@@ -17,13 +17,21 @@ Open the local URL printed by Vite. `npm run build` type-checks the application
 and produces a static website in `dist`. `npm test` runs the solver tests.
 `npm run test:e2e` runs browser tests (requires Playwright Chromium).
 
-## Using the studio
+## Using the app
 
-- **Puzzle maker:** manual digit entry, erasing digits, and pencil/Snyder marks
+- **Generate:** manual digit entry, erasing digits, and pencil/Snyder marks
   are currently disabled. Select cells to inspect them or use arrow keys to move.
   The toolkit, candidate display, hint control, and separate Solve & play mode
   are currently removed. Generation options and the Generate button sit above
   the grid on desktop and mobile.
+- Use the header dropdown to switch between **Generate**, **Import grid**, and
+  **Techniques**. The Techniques page lists the supported repertoire in ascending
+  rating order, including thermometer bounds and Brute force.
+- **Exact thermometer lengths:** optionally enter comma-separated lengths such
+  as `4,4,4,5`. This overrides count and minimum length and includes the bulb in
+  each length. Rotational symmetry requires every length to occur an even number
+  of times; turn symmetry off for unmatched lengths. Blank restores the usual
+  count/minimum controls. Exact lengths persist in saved and exported JSON.
 - **Thermo / Slow Thermo:** choose strictly increasing or nondecreasing paths.
   Slow Thermo requires at least one equal consecutive pair on a thermometer
   in the completed grid. Normal Sudoku rules still apply to those cells.
@@ -90,13 +98,16 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 
 ## Import grid page
 
-Open **Import grid** in the page navigation (`#import-grid`). Paste a TS1 token
+Open **Import grid** in the page navigation (`?page=import-grid`). Paste a TS1 token
 on its own or inside a message, puzzle JSON, or 81 digits with 0/dot blanks.
 Plain digits represent a Sudoku without thermometers. This page checks the
 import independently without replacing the maker's puzzle.
 
 The check runs in a cancelable worker. A unique puzzle displays its completed
-grid beside an interactive walkthrough. For multiple solutions, two valid
+grid beside an interactive walkthrough. Use Hide solution / Reveal solution to switch
+between original givens and the completion. Copy grid as a string or image copies
+the currently displayed grid, preserving thermometer paths. Technique tallies
+are sorted by ascending technique score. For multiple solutions, two valid
 completions appear side by side, with every differing cell highlighted in amber
 and outlined. Contradictory puzzles report no solution. A time limit is reported
 as inconclusive, never as proof of uniqueness. A separate walkthrough timeout

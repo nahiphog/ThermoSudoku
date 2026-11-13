@@ -1,3 +1,4 @@
+import { techniqueScore } from '../src/technique-tallies';
 import { expect, test } from '@playwright/test';
 
 const clues = '530070000600195000098000060800060003400803001700020006060000280000419005000080079';
@@ -14,6 +15,8 @@ test('import page shows a unique completion alongside a navigable walkthrough', 
   await expect(page.locator('#import-step-title')).toHaveText('Starting puzzle');
   await expect(page.locator('#import-tallies tbody tr').first()).toBeVisible();
   const tallies = await page.locator('#import-tallies').textContent();
+  const ratings = (await page.locator('#import-tallies tbody th').allTextContents()).map(techniqueScore);
+  expect(ratings).toEqual([...ratings].sort((a, b) => a - b));
   await page.locator('#import-next').click();
   await expect(page.locator('#import-step-count')).toContainText('Step 2');
   await page.locator('#import-last').click();
@@ -39,6 +42,61 @@ test('import page shows a unique completion alongside a navigable walkthrough', 
   await expect(page.locator('#import-results .board')).toHaveCount(0);
   await page.locator('#import-text').fill('bad input'); await page.locator('#inspect-import').click();
   await expect(page.locator('#import-status')).toContainText('Paste a TS1');
-  await page.getByRole('link', { name: 'Puzzle maker', exact: true }).click();
+  await page.locator('#page-menu summary').click();
+  await page.getByRole('link', { name: 'Generate', exact: true }).click();
   await expect(page.locator('#maker-page')).toBeVisible();
+});
+
+
+test('import controls export the displayed grid and navigation uses no hashes', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      writeText: async (text: string) => { localStorage.setItem('copied-grid', text); },
+      write: async (items: ClipboardItem[]) => {
+        const blob = await items[0].getType('image/png');
+        localStorage.setItem('copied-image', String(blob.size));
+      },
+    } });
+  });
+  await page.goto('/');
+  await expect(page).toHaveTitle('Thermo');
+  await page.locator('#page-menu summary').click();
+  await page.getByRole('link', { name: 'Import grid', exact: true }).click();
+  await expect(page).toHaveURL(/\?page=import-grid$/);
+  await page.reload();
+  await expect(page.locator('#import-page')).toBeVisible();
+  const ratio = await page.locator('#import-text').evaluate(el => {
+    const parent = el.parentElement!;
+    const style = getComputedStyle(parent);
+    return el.getBoundingClientRect().width / (parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+  });
+  expect(ratio).toBeCloseTo(0.5, 2);
+  await page.locator('#import-text').fill('TS1|T|' + clues + '|181929');
+  await page.locator('#inspect-import').click();
+  await expect(page.locator('#import-status')).toHaveText('Exactly one solution.', { timeout: 65000 });
+  const solved = (await page.locator('#import-completed .digit').allTextContents()).join('');
+  await page.locator('#import-copy-string').click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('copied-grid'))).toBe('TS1|T|' + solved + '|181929');
+  await page.locator('#import-copy-image').click();
+  await expect(page.locator('#import-copy-status')).toHaveText('Completed grid image copied.');
+  const completedImage = await page.evaluate(() => localStorage.getItem('copied-image'));
+  await page.locator('#import-reveal').click();
+  await expect(page.locator('#import-grid-title')).toHaveText('Given grid');
+  await expect(page.locator('#import-completed .digit')).toHaveCount(clues.replace(/0/g, '').length);
+  await page.locator('#import-copy-string').click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('copied-grid'))).toBe('TS1|T|' + clues + '|181929');
+  await page.locator('#import-copy-image').click();
+  await expect(page.locator('#import-copy-status')).toHaveText('Given grid image copied.');
+  expect(await page.evaluate(() => localStorage.getItem('copied-image'))).not.toBe(completedImage);
+  await page.locator('#import-reveal').click();
+  await expect(page.locator('#import-completed .digit')).toHaveCount(81);
+  await page.locator('#page-menu summary').click();
+  await page.getByRole('link', { name: 'Generate', exact: true }).click();
+  await expect(page).toHaveURL(/\?page=generate$/);
+  await page.goBack();
+  await expect(page.locator('#import-page')).toBeVisible();
+  await page.goForward();
+  await expect(page.locator('#maker-page')).toBeVisible();
+  await page.goto('/#import-grid');
+  await expect(page).toHaveURL(/\?page=import-grid$/);
 });

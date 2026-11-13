@@ -1,3 +1,5 @@
+import { mountNavigation } from './navigation';
+import { mountTechniquesPage } from './techniques-page';
 import './style.css';
 import { renderTechniqueTallies } from './technique-tallies';
 import { mountImportPage } from './import-page';
@@ -21,15 +23,19 @@ try {
   puzzle.values = [...puzzle.givens];
 } catch { /* Storage is optional. */ }
 
+let lengthsText = puzzle.thermoLengths?.join(',') ?? '';
+let lengthsError: string | null = null;
+
 $('#app').innerHTML = `
-<header class="topbar"><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><div class="header-actions"><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a><button id="about" class="outline" aria-haspopup="dialog" aria-controls="about-dialog">About</button></div></header>
-<nav class="page-nav" aria-label="Pages"><a href="#maker">Puzzle maker</a><a href="#import-grid">Import grid</a></nav>
+<header class="topbar"><details id="page-menu"><summary>Generate</summary><nav class="page-nav" aria-label="Pages"><a href="?page=generate">Generate</a><a href="?page=import-grid">Import grid</a><a href="?page=techniques">Techniques</a></nav></details><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><div class="header-actions"><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a><button id="about" class="outline" aria-haspopup="dialog" aria-controls="about-dialog">About</button></div></header>
+
 <main id="maker-page">
   <section class="card settings-card" aria-label="Puzzle options">
-    <div class="settings-heading"><h1>Puzzle options</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
+    <div class="settings-heading"><h1>Generate</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
     <div class="generation-options">
       <label>Number of thermometers <select id="thermometer-count">${Array.from({length:30}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}</select></label>
       <label>Minimum thermometer length <select id="min-thermo-length">${Array.from({length:13}, (_, i) => `<option value="${i+2}">${i+2} cells</option>`).join('')}</select></label>
+      <div class="exact-lengths"><label for="thermo-lengths">Exact thermometer lengths (optional)</label><input id="thermo-lengths" type="text" placeholder="4,4,4,5" aria-describedby="lengths-help generation-error"><p id="lengths-help" class="muted">Comma-separated cell counts, including each bulb. Overrides count and minimum length. Leave blank to use those settings.</p></div>
       <label><input id="no-givens" type="checkbox"> No given cells</label>
       <label><input id="logical-only" type="checkbox"> Logical techniques only (no Brute force)</label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
@@ -107,7 +113,7 @@ function cancel() {
 }
 function message(title: string, body: string) { status = title; detail = body; }
 function replace(next: Puzzle) {
-  cancel(); puzzle = next; puzzle.values = [...puzzle.givens]; solution = null; revealed = false; report = null; slide = null; save(); render();
+  cancel(); puzzle = next; lengthsText = puzzle.thermoLengths?.join(',') ?? ''; lengthsError = null; puzzle.values = [...puzzle.givens]; solution = null; revealed = false; report = null; slide = null; save(); render();
 }
 const visibleValues = () => slide !== null && report ? report.analysis.frames[slide].values : revealed && solution ? solution : puzzle.givens;
 function render() {
@@ -140,13 +146,16 @@ function render() {
   $<HTMLButtonElement>('#copy-image').disabled = !!busy || slide !== null;
   $('#generation-report').hidden = !report;
   $('#generation-stats').hidden = !report;
-  const invalid = generationError(puzzle.variant, puzzle);
+  const invalid = lengthsError ?? generationError(puzzle.variant, puzzle);
   $('#generation-error').textContent = invalid ?? '';
+  const lengthsInput = $<HTMLInputElement>('#thermo-lengths');
+  if (lengthsInput.value !== lengthsText) lengthsInput.value = lengthsText;
+  lengthsInput.disabled = !!busy; lengthsInput.setAttribute('aria-invalid', String(!!invalid && !!lengthsText));
   $<HTMLButtonElement>('#generate').disabled = !busy && !!invalid;
   $('#generate').textContent = busy ? 'Cancel' : 'Generate puzzle';
   updateElapsed();
   for (const [id, key] of Object.entries(numericSettings)) {
-    const select = $<HTMLSelectElement>(`#${id}`); select.value = String(puzzle[key] ?? (key === 'thermometerCount' ? 6 : 3)); select.disabled = !!busy;
+    const select = $<HTMLSelectElement>(`#${id}`); select.value = String(puzzle.thermoLengths?.length ? (key === 'thermometerCount' ? puzzle.thermoLengths.length : Math.min(...puzzle.thermoLengths)) : puzzle[key] ?? (key === 'thermometerCount' ? 6 : 3)); select.disabled = !!busy || !!lengthsText.trim();
   }
   $('#walkthrough-panel').hidden = slide === null || !report;
   if (report) {
@@ -170,6 +179,15 @@ function render() {
     }
   }
 }
+$('#thermo-lengths').oninput = e => {
+  lengthsText = (e.target as HTMLInputElement).value;
+  lengthsError = lengthsText.trim() && !/^\s*\d+\s*(,\s*\d+\s*)*$/.test(lengthsText) ? 'Enter whole-number lengths separated by commas, for example 4,4,4,5.' : null;
+  if (!lengthsError) {
+    puzzle.thermoLengths = lengthsText.trim() ? lengthsText.split(',').map(Number) : undefined;
+    if (!generationError(puzzle.variant, puzzle)) save();
+  }
+  render();
+};
 for (const [id, key] of Object.entries(numericSettings)) $<HTMLSelectElement>(`#${id}`).onchange = e => {
   puzzle[key] = Number((e.target as HTMLSelectElement).value); save(); render();
 };
@@ -182,13 +200,13 @@ for (const v of ['thermo', 'slow'] as const) $(`#${v}-variant`).onclick = () => 
   puzzle.variant = v; solution = null; revealed = false; report = null; slide = null; save(); message('Variant updated.', 'Generate a puzzle with the selected rules.'); render();
 };
 window.addEventListener('keydown', e => {
-  if (location.hash === '#import-grid' || document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT', 'SELECT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if ((e.target as HTMLElement).closest('#page-menu') || $('#maker-page').hidden || document.querySelector('dialog[open]') || ['TEXTAREA', 'INPUT', 'SELECT'].includes((e.target as HTMLElement).tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[0-9]$/.test(e.key) || ['Backspace', 'Delete'].includes(e.key)) { e.preventDefault(); return; }
   const moves: Record<string, number> = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 };
   if (e.key in moves) { e.preventDefault(); selected = (selected + moves[e.key] + 81) % 81; render(); cells[selected].focus(); }
 });
 function run(type: 'check' | 'solve' | 'generate') {
-  if (busy || (type === 'generate' && generationError(puzzle.variant, puzzle))) return;
+  if (busy || (type === 'generate' && (lengthsError || generationError(puzzle.variant, puzzle)))) return;
   busy = type;
   if (type === 'generate') { generationStarted = performance.now(); generationElapsed = 0; generationTimer = setInterval(updateElapsed, 100); }
   render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
@@ -286,3 +304,6 @@ $('#download').onclick = () => download(new Blob([JSON.stringify(puzzle, null, 2
 render();
 
 mountImportPage();
+
+mountTechniquesPage();
+mountNavigation();

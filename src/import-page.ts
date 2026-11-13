@@ -1,3 +1,5 @@
+import { encodePuzzle } from './puzzle-string';
+import { gridImage } from './grid-image';
 import { renderTechniqueTallies } from './technique-tallies';
 import { parseImport, type ImportResult } from './import-check';
 import type { Puzzle } from './puzzle';
@@ -24,12 +26,9 @@ export function mountImportPage() {
   let worker: Worker | null = null;
   const stop = () => { worker?.terminate(); worker = null; $<HTMLButtonElement>('#inspect-import').disabled = false; $('#stop-import').hidden = true; };
   const clear = () => { stop(); $('#import-results').innerHTML = ''; $('#import-status').textContent = ''; };
-  const route = () => {
-    const active = location.hash === '#import-grid'; page.hidden = !active; (document.querySelector('#maker-page') as HTMLElement).hidden = active;
-    document.querySelectorAll<HTMLAnchorElement>('.page-nav a').forEach(a => { if (a.hash === (active ? '#import-grid' : '#maker')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-    if (!active && worker) { stop(); $('#import-status').textContent = 'Check canceled.'; }
-  };
-  window.addEventListener('hashchange', route); route();
+  window.addEventListener('pagechange', () => {
+    if (page.hidden && worker) { stop(); $('#import-status').textContent = 'Check canceled.'; }
+  });
   $('#import-text').addEventListener('input', clear);
   $('#stop-import').onclick = () => { stop(); $('#import-status').textContent = 'Check canceled. No uniqueness conclusion was reached.'; };
   $('#inspect-import').onclick = () => {
@@ -53,7 +52,49 @@ export function mountImportPage() {
       if (!result.exhausted) { $('#import-status').textContent = 'Search limit reached. Uniqueness is undetermined; try checking again.'; return; }
       if (!result.solutions.length) { $('#import-status').textContent = 'No solution exists under the supplied Sudoku and thermometer rules.'; return; }
       $('#import-status').textContent = 'Exactly one solution.';
-      target.innerHTML = `<div class="import-columns"><section class="card"><h2>Completed grid</h2><div id="import-completed" class="board" aria-label="Completed grid">${board(p, result.solutions[0])}</div></section><section class="card"><h2>Solution walkthrough</h2><div id="import-walk-content"></div></section></div>`;
+      target.innerHTML = `<div class="import-columns"><section class="card"><h2 id="import-grid-title">Completed grid</h2><div id="import-completed" class="board" aria-label="Completed grid">${board(p, result.solutions[0])}</div><div class="import-grid-actions"><button id="import-reveal" class="primary" aria-pressed="true">Hide solution</button><button id="import-copy-string" class="outline">Copy grid as a string</button><button id="import-copy-image" class="outline">Copy grid as an image</button></div><p id="import-copy-status" role="status" aria-live="polite"></p><label id="import-copy-label" for="import-copy-fallback" hidden>Grid string — select and copy</label><textarea id="import-copy-fallback" readonly hidden></textarea></section><section class="card"><h2>Solution walkthrough</h2><div id="import-walk-content"></div></section></div>`;
+      let revealed = true;
+      const visibleValues = () => revealed ? result.solutions[0] : p.givens;
+      $('#import-reveal').onclick = () => {
+        revealed = !revealed;
+        const title = revealed ? 'Completed grid' : 'Given grid';
+        $('#import-grid-title').textContent = title;
+        $('#import-completed').setAttribute('aria-label', title);
+        $('#import-completed').innerHTML = board(p, visibleValues());
+        $('#import-reveal').textContent = revealed ? 'Hide solution' : 'Reveal solution';
+        $('#import-reveal').setAttribute('aria-pressed', String(revealed));
+        $('#import-copy-status').textContent = '';
+        $('#import-copy-label').hidden = $('#import-copy-fallback').hidden = true;
+      };
+      $('#import-copy-string').onclick = async () => {
+        const text = encodePuzzle({ ...p, givens: [...visibleValues()] });
+        const label = revealed ? 'Completed' : 'Given';
+        try {
+          await navigator.clipboard.writeText(text);
+          $('#import-copy-status').textContent = `${label} grid string copied.`;
+        } catch {
+          $('#import-copy-label').hidden = $('#import-copy-fallback').hidden = false;
+          $<HTMLTextAreaElement>('#import-copy-fallback').value = text;
+          $<HTMLTextAreaElement>('#import-copy-fallback').select();
+          $('#import-copy-status').textContent = 'Clipboard unavailable. Select and copy the grid string below.';
+        }
+      };
+      $('#import-copy-image').onclick = async () => {
+        const png = gridImage(p, [...visibleValues()]);
+        const label = revealed ? 'Completed' : 'Given';
+        try {
+          if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Clipboard unavailable');
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+          $('#import-copy-status').textContent = `${label} grid image copied.`;
+        } catch {
+          try {
+            const url = URL.createObjectURL(await png), link = document.createElement('a');
+            link.href = url; link.download = `thermo-${label.toLowerCase()}-grid.png`; link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            $('#import-copy-status').textContent = 'Clipboard unavailable. Grid image downloaded.';
+          } catch { $('#import-copy-status').textContent = 'Could not create the grid image. Please try again.'; }
+        }
+      };
       if (!result.analysis) { $('#import-walk-content').textContent = `The solution is verified, but the walkthrough could not finish. ${result.analysisError ?? ''} Check again to retry.`; return; }
       const analysis = result.analysis; let index = 0;
       $('#import-walk-content').innerHTML = `<p id="import-rating"></p><div id="import-tallies"></div><div id="import-walk-board" class="board" aria-label="Walkthrough grid"></div><p id="import-step-count"></p><h3 id="import-step-title"></h3><p id="import-step-description" aria-live="polite"></p><input id="import-step-range" type="range" min="0" max="${analysis.frames.length - 1}" value="0" aria-label="Imported solution step"><div class="button-pair"><button id="import-prev" class="outline">Previous step</button><button id="import-next" class="primary">Next step</button></div><div class="button-pair"><button id="import-first" class="text-button">Starting puzzle</button><button id="import-last" class="text-button">Completed step</button></div><p class="muted">Purple: placed digit. Red crossed marks: eliminated candidates. Trials and rollbacks are labeled.</p>`;

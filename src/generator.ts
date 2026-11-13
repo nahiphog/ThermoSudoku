@@ -37,7 +37,14 @@ type Progress = (progress: GenerationProgress) => void;
 const budgetError = () => new Error('Generation budget reached before completing all uniqueness checks and digging. No unfinished puzzle was returned; please try again.');
 
 /** Step 1: geometry only. There are no digits or completed grids at this point. */
-export function drawLayout(symmetric: boolean, random = Math.random, count = 6, minLength = MIN_THERMO_LENGTH, maxLength = 14): number[][] | null {
+export function drawLayout(symmetric: boolean, random = Math.random, count = 6, minLength = MIN_THERMO_LENGTH, maxLength = 14, exactLengths?: number[]): number[][] | null {
+  if (exactLengths) {
+    if (!exactLengths.length || exactLengths.some(n => !Number.isInteger(n) || n < 2 || n > maxLength) || exactLengths.reduce((a, b) => a + b, 0) > 81) return null;
+    const requested = exactLengths;
+    if (symmetric && requested.some(n => requested.filter(v => v === n).length % 2)) return null;
+    exactLengths = symmetric ? [...exactLengths].sort((a, b) => b - a) : [...exactLengths];
+    count = exactLengths.length; minLength = Math.min(...exactLengths);
+  }
   if (count * minLength > 81 || (symmetric && count % 2)) return null;
   const paths: number[][] = [], occupied = new Uint8Array(81), diagonals = new Int8Array(64);
   let used = 0;
@@ -57,16 +64,16 @@ export function drawLayout(symmetric: boolean, random = Math.random, count = 6, 
   for (let trial = 0; trial < 300 && paths.length < count; trial++) {
     const path = [Math.floor(random() * 81)];
     const spare = 81 - count * minLength;
-    const length = minLength + (minLength < maxLength && spare > count && random() < .35 ? 1 : 0);
+    const length = exactLengths?.[paths.length] ?? minLength + (minLength < maxLength && spare > count && random() < .35 ? 1 : 0);
     while (path.length < length) {
       const next = shuffle(neighbors[path.at(-1)!], random).find(c => fits([[...path, c]]));
       if (next === undefined) break;
       path.push(next);
     }
-    if (path.length < minLength) continue;
+    if (path.length < (exactLengths ? length : minLength)) continue;
     const addition = symmetric ? [path, rotatePath(path)] : [path];
     const extra = addition.reduce((n, t) => n + t.length, 0);
-    if (used + extra + (count - paths.length - addition.length) * minLength > 81 || !fits(addition)) continue;
+    if (used + extra + (exactLengths ? exactLengths.slice(paths.length + addition.length).reduce((a, b) => a + b, 0) : (count - paths.length - addition.length) * minLength) > 81 || !fits(addition)) continue;
     for (const t of addition) for (let i = 0; i < t.length; i++) {
       occupied[t[i]] = 1; const d = i ? diagonal(t[i - 1], t[i]) : null; if (d) diagonals[d[0]] = d[1];
     }
@@ -110,7 +117,7 @@ export function fillCells(start: Grid, p: Puzzle, targets: number[], random: () 
 function pipeline(variant: Variant, random: () => number, budgetMs: number, options: GenerationOptions, progress: Progress, tuning: GenerationTuning = {}) {
   const invalid = generationError(variant, options); if (invalid) throw new Error(invalid);
   const logicalOnly = options.logicalOnly ?? true;
-  const count = options.thermometerCount ?? 6, minLength = options.minThermoLength ?? 3;
+  const count = options.thermoLengths?.length ?? options.thermometerCount ?? 6, minLength = options.thermoLengths ? Math.min(...options.thermoLengths) : options.minThermoLength ?? 3;
   const started = performance.now(), deadline = started + budgetMs;
   const profile: GenerationProfile = {
     stageMs: { layout: 0, fillThermos: 0, fillGrid: 0, uniqueness: 0, logical: 0, walkthrough: 0 },
@@ -127,9 +134,10 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
   while (performance.now() < deadline) {
     attempts++;
     progress({ stage: 1, attempt: attempts, text: `Drawing ${count} non-overlapping thermometers of ${minLength}+ cells.` });
-    const paths = timed('layout', () => drawLayout(options.symmetricThermos, random, count, minLength, variant === 'thermo' ? 9 : 14));
+    const paths = timed('layout', () => drawLayout(options.symmetricThermos, random, count, minLength, variant === 'thermo' ? 9 : 14, options.thermoLengths));
     if (!paths) { profile.layoutFailures++; continue; }
     const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths;
+    if (options.thermoLengths) p.thermoLengths = [...options.thermoLengths];
     p.thermometerCount = count; p.minThermoLength = minLength; p.logicalOnly = logicalOnly; p.noGivens = options.noGivens ?? false;
     const compiled = compileConstraints(paths, variant);
     if (variant === 'slow' && !compiled.repeats.length) { profile.layoutFailures++; continue; }
