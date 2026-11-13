@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { analyze, LogicalSolveStalled } from './walkthrough';
 import { blank } from './puzzle';
 import { solve } from './solver';
-import { TECHS } from './vendor/sudokui/ratings';
+import { TECHS } from './techniques';
 
 it('records actual backtracking trials and restored states on a hard puzzle', () => {
   const p = blank();

@@ -1,5 +1,6 @@
+import { findPhistomefelRing } from './phistomefel-ring';
 import { bit, cloneGrid, digitsOf, gridFromValues, isBroken, isSolved, PEERS, popcount, setValue, type Grid } from './vendor/sudokui/board';
-import type { Step } from './vendor/sudokui/steps';
+import type { Step } from './techniques';
 import { findFullHouse, findHiddenSingle, findNakedSingle } from './vendor/sudokui/techniques/singles';
 import { findLockedCandidates1, findLockedCandidates2 } from './vendor/sudokui/techniques/intersections';
 import { findHiddenSubset, findNakedSubset } from './vendor/sudokui/techniques/subsets';
@@ -16,6 +17,7 @@ const finders: ((g: Grid) => Step | null)[] = [
   ...[2, 3, 4].map(n => (g: Grid) => findBasicFish(g, n)),
   findXYWing, findXYZWing, findWWing,
   (g: Grid) => findTurbotFamily(g, 'SKYSCRAPER'), (g: Grid) => findTurbotFamily(g, 'TWO_STRING_KITE'), findEmptyRectangle,
+  findPhistomefelRing,
   ...[2, 3, 4].flatMap(n => [(g: Grid) => findFinnedFish(g, n, false), (g: Grid) => findFinnedFish(g, n, true)])
 ];
 export function nextLogicalStep(g: Grid): Step | null {

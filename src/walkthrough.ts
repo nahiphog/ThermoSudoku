@@ -1,8 +1,9 @@
+import { TECHS } from './techniques';
 import { conflicts } from './solver';
 import { runLogical } from './logical-runner';
 import { hasRepeatedStep, type Puzzle } from './puzzle';
 import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount, setValue, type Grid } from './vendor/sudokui/board';
-import { LEVELS, LEVEL_MAX_SCORE, TECHS, type Level } from './vendor/sudokui/ratings';
+import { LEVELS, LEVEL_MAX_SCORE, type Level } from './vendor/sudokui/ratings';
 import type { CellDigit } from './vendor/sudokui/steps';
 
 export interface Frame { title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; kind: 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }

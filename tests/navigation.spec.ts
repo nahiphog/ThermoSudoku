@@ -23,7 +23,7 @@ test('Generate exact lengths and centered navigation work on desktop and mobile'
     await expect(page).toHaveURL(/page=techniques$/);
     await expect(page.getByRole('heading', { name: 'Techniques', exact: true })).toBeVisible();
     const scores = (await page.locator('.technique-catalog tbody td:first-of-type').allTextContents()).map(Number);
-    expect(scores).toHaveLength(28);
+    expect(scores).toHaveLength(29);
     expect(scores).toEqual([...scores].sort((a,b) => a-b));
     await expect(page.locator('.technique-catalog tbody tr').last()).toContainText('Brute force');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

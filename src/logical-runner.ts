@@ -1,7 +1,8 @@
 import { applyLogicalStep, conflicts, nextLogicalStep, propagate } from './solver';
 import { hasRepeatedStep, type Puzzle } from './puzzle';
 import { digitsOf, gridFromValues, isSolved, type Grid } from './vendor/sudokui/board';
-import type { CellDigit, Step } from './vendor/sudokui/steps';
+import type { CellDigit } from './vendor/sudokui/steps';
+import type { Step } from './techniques';
 
 /** One technique ordering for both certification and explanatory replay.
  * In check mode no board snapshots or elimination lists are allocated. */

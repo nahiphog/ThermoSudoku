@@ -1,9 +1,9 @@
-import { TECHS, type Tech } from './vendor/sudokui/ratings';
+import { TECHS, type Tech } from './techniques';
 const supported: Tech[] = [
   'FULL_HOUSE', 'NAKED_SINGLE', 'HIDDEN_SINGLE', 'LOCKED_CANDIDATES_1', 'LOCKED_CANDIDATES_2',
   'NAKED_PAIR', 'NAKED_TRIPLE', 'NAKED_QUADRUPLE', 'HIDDEN_PAIR', 'HIDDEN_TRIPLE', 'HIDDEN_QUADRUPLE',
   'X_WING', 'SWORDFISH', 'JELLYFISH', 'XY_WING', 'XYZ_WING', 'W_WING', 'SKYSCRAPER', 'TWO_STRING_KITE', 'EMPTY_RECTANGLE',
-  'FINNED_X_WING', 'SASHIMI_X_WING', 'FINNED_SWORDFISH', 'SASHIMI_SWORDFISH', 'FINNED_JELLYFISH', 'SASHIMI_JELLYFISH', 'BRUTE_FORCE',
+  'PHISTOMEFEL_RING', 'FINNED_X_WING', 'SASHIMI_X_WING', 'FINNED_SWORDFISH', 'SASHIMI_SWORDFISH', 'FINNED_JELLYFISH', 'SASHIMI_JELLYFISH', 'BRUTE_FORCE',
 ];
 export const repertoire = [...supported.map(key => ({ ...TECHS[key], name: key === 'BRUTE_FORCE' ? 'Brute force' : TECHS[key].name })),
   { name: 'Thermometer bounds', score: 5, level: 'Easy', category: 'Thermometers' },

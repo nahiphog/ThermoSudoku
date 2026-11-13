@@ -95,6 +95,25 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   uses across the entire solve, including failed trials; rollbacks are also reported.
   Imported puzzle walkthroughs show the same tallies.
 
+## Simulation page
+
+Open **Simulation** from the header dropdown (`?page=simulation`). It shares
+Generate's variant, exact-length, no-givens, logical-only, and rotational-symmetry
+controls, with independent settings.
+
+- Total trials: 1, 10, 100, 1,000, 10,000, or 1,000,000 (default).
+- Minimum displayed difficulty: 0, 500, 1,000 (default), 2,000, 3,000, 5,000,
+  10,000, or 10,000,000. Equality qualifies.
+- Start explicitly to generate and rate one complete puzzle per trial with the
+  shared solver. Counters show completed trials, matches, and highest score.
+- Stop terminates the current worker and keeps completed results. An unfinished
+  or failed trial is not counted; a generation/storage error stops the run.
+- Qualifying grids are stored in IndexedDB and displayed twelve per page. Only
+  compact puzzle/rating results cross from the worker; walkthrough frames are
+  discarded after each trial. Separate page sessions have isolated result keys.
+- Keep the browser tab open; navigation within the app does not stop the run.
+  Starting a new simulation replaces that session's previous results.
+
 ## Import grid page
 
 Open **Import grid** in the page navigation (`?page=import-grid`). Paste a TS1 token
@@ -119,7 +138,14 @@ are vendored under `src/vendor/sudokui`. See THIRD_PARTY_NOTICES.md for the
 pinned commit and imported modules. The logical solver includes full houses,
 naked/hidden singles, locked candidates, naked/hidden subsets (2–4), basic,
 finned and sashimi fish (2–4), XY/XYZ/W wings, skyscrapers, two-string kites,
-and empty rectangles. This is a curated subset, not its entire catalogue.
+and empty rectangles. The shared solver also applies **Phistomefel Ring** to
+all Sudoku variants: the 16 cells around the central box and the four 2×2
+corner regions have identical digit multiplicities. Per-digit count bounds
+remove surplus candidates or force required placements in either direction.
+Each productive use adds 200 points, regardless of how many cells it changes;
+checks that produce no deduction add no score. It is included in logical-only
+generation, hints, import analysis, walkthroughs, and technique tallies.
+This is a curated subset, not its entire catalogue.
 
 `src/solver.ts` adds directed inequality arc consistency, including overlapping
 thermometers, and a minimum-candidate search that validates the thermo

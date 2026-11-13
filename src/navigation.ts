@@ -2,8 +2,8 @@ export function mountNavigation() {
   const menu = document.querySelector<HTMLDetailsElement>('#page-menu')!;
   const route = () => {
     const requested = new URLSearchParams(location.search).get('page');
-    const active = requested === 'import-grid' || requested === 'techniques' ? requested : 'generate';
-    for (const [name, id] of [['generate', 'maker-page'], ['import-grid', 'import-page'], ['techniques', 'techniques-page']]) {
+    const active = requested === 'import-grid' || requested === 'techniques' || requested === 'simulation' ? requested : 'generate';
+    for (const [name, id] of [['generate', 'maker-page'], ['import-grid', 'import-page'], ['techniques', 'techniques-page'], ['simulation', 'simulation-page']]) {
       document.getElementById(id)!.hidden = active !== name;
     }
     document.querySelectorAll<HTMLAnchorElement>('.page-nav a').forEach(a => {

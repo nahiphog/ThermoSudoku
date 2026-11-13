@@ -1,4 +1,4 @@
-import { TECHS } from './vendor/sudokui/ratings';
+import { TECHS } from './techniques';
 import type { Analysis } from './walkthrough';
 
 const scores = new Map(Object.values(TECHS).map(info => [info.name.toLowerCase(), info.score]));

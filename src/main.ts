@@ -1,3 +1,5 @@
+import { generationControls } from './generation-controls';
+import { mountSimulationPage } from './simulation-page';
 import { mountNavigation } from './navigation';
 import { mountTechniquesPage } from './techniques-page';
 import './style.css';
@@ -27,17 +29,11 @@ let lengthsText = puzzle.thermoLengths?.join(',') ?? '';
 let lengthsError: string | null = null;
 
 $('#app').innerHTML = `
-<header class="topbar"><details id="page-menu"><summary>Generate</summary><nav class="page-nav" aria-label="Pages"><a href="?page=generate">Generate</a><a href="?page=import-grid">Import grid</a><a href="?page=techniques">Techniques</a></nav></details><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><div class="header-actions"><button id="about" class="outline" aria-haspopup="dialog" aria-controls="about-dialog">About</button></div></header>
+<header class="topbar"><details id="page-menu"><summary>Generate</summary><nav class="page-nav" aria-label="Pages"><a href="?page=generate">Generate</a><a href="?page=import-grid">Import grid</a><a href="?page=simulation">Simulation</a><a href="?page=techniques">Techniques</a></nav></details><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><div class="header-actions"><button id="about" class="outline" aria-haspopup="dialog" aria-controls="about-dialog">About</button></div></header>
 
 <main id="maker-page">
   <section class="card settings-card" aria-label="Puzzle options">
-    <div class="settings-heading"><h1>Generate</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
-    <div class="generation-options">
-      <div class="exact-lengths"><label for="thermo-lengths">Exact thermometer lengths (optional)</label><input id="thermo-lengths" type="text" placeholder="4,4,4,5" aria-describedby="lengths-help generation-error"><p id="lengths-help" class="muted">Comma-separated cell counts, including each bulb. Enter one length per thermometer, or leave blank for automatic lengths.</p></div>
-      <label><input id="no-givens" type="checkbox"> No given cells</label>
-      <label><input id="logical-only" type="checkbox"> Logical techniques only (no Brute force)</label>
-      <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
-    </div>
+    ${generationControls('Generate')}
     <div class="generate-row"><button id="generate" class="primary">Generate puzzle</button><span id="generation-elapsed" class="muted" hidden></span></div>
     <p id="generation-error" role="alert"></p>
     <div id="status" role="status" aria-live="polite"><strong id="status-title"></strong><p id="status-detail"></p></div>
@@ -297,4 +293,5 @@ render();
 mountImportPage();
 
 mountTechniquesPage();
+mountSimulationPage();
 mountNavigation();
