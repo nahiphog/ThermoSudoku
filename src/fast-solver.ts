@@ -24,6 +24,13 @@ export function compileConstraints(thermos: number[][], variant: Variant): Compi
     links[a].push({ other: b, forward: true, equal }); links[b].push({ other: a, forward: false, equal });
     if (equal) repeats.push([a, b]);
   }
+  if (variant === 'slow') for (const path of thermos) for (let i = 0; i < path.length; i++) for (let j = i + 2; j < path.length; j++) {
+    const a = path[i], b = path[j];
+    if (PEERS[a].includes(b)) {
+      links[a].push({ other: b, forward: true, equal: false });
+      links[b].push({ other: a, forward: false, equal: false });
+    }
+  }
   return { links, repeats, slow: variant === 'slow', missing: variant === 'missing' ? thermos : [] };
 }
 

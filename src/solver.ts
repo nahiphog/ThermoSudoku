@@ -1,4 +1,5 @@
 import { missingSupports, gridDomains, bulbFindingDescription } from './missing-thermometer';
+import { applySlowThermometerBounds } from './slow-thermometer';
 import { findPhistomefelRing } from './phistomefel-ring';
 import { bit, cloneGrid, digitsOf, gridFromValues, isBroken, isSolved, PEERS, popcount, setValue, type Grid } from './vendor/sudokui/board';
 import type { Step } from './techniques';
@@ -54,6 +55,10 @@ export function propagate(g: Grid, thermos: number[][], variant: Variant = 'ther
   let changed = true;
   while (changed) {
     changed = false;
+    if (variant === 'slow') {
+      if (!applySlowThermometerBounds(g, thermos)) return false;
+      continue;
+    }
     if (variant === 'missing') {
       for (const path of thermos) {
         const support = missingSupports(gridDomains(g), path);
@@ -68,7 +73,7 @@ export function propagate(g: Grid, thermos: number[][], variant: Variant = 'ther
     for (const t of thermos) for (let i = 1; i < t.length; i++) {
       const a = t[i - 1], b = t[i];
       const da = digitsOf(domain(g, a)), db = digitsOf(domain(g, b));
-      const permits = (x: number, y: number) => x < y || (variant === 'slow' && x === y && !PEERS[a].includes(b));
+      const permits = (x: number, y: number) => x < y;
       const ma = da.filter(x => db.some(y => permits(x, y))).reduce((m, d) => m | bit(d), 0);
       const mb = db.filter(y => da.some(x => permits(x, y))).reduce((m, d) => m | bit(d), 0);
       if (!ma || !mb) return false;

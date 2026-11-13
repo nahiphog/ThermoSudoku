@@ -1,4 +1,5 @@
 import { bulbFindingDescription } from './missing-thermometer';
+import { slowThermometerBoundsDescription } from './slow-thermometer';
 import { TECHS } from './techniques';
 import { conflicts } from './solver';
 import { runLogical } from './logical-runner';
@@ -36,7 +37,12 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
         add(g, 'bulb', info.name, bulbFindingDescription(p.thermos[index], cell, index));
       },
       thermo: removed => {
-        add(g, 'thermo', 'Thermometer bounds', `Remove ${removed.length} candidates incompatible with ${p.variant === 'slow' ? 'nondecreasing' : 'strictly increasing'} thermometer order. Grey marks remain possible; crossed red marks were removed.`, [], removed);
+        if (p.variant === 'slow') {
+          const info = TECHS.SLOW_THERMOMETER_BOUNDS;
+          add(g, 'thermo', info.name, slowThermometerBoundsDescription(p.thermos, removed.map(e => e.cell)), [], removed);
+          credit(info.name, info.score, info.level); return;
+        }
+        add(g, 'thermo', 'Thermometer bounds', `Remove ${removed.length} candidates incompatible with strictly increasing thermometer order. Grey marks remain possible; crossed red marks were removed.`, [], removed);
         credit('Thermometer bounds', 5, 'Easy');
       },
       step: step => {
