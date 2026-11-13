@@ -40,7 +40,7 @@ export function mountSimulationPage() {
     for (const el of page.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.settings-card input, .settings-card select, .mode-switch button')) el.disabled = running;
     const error = readOptions(); $('generation-error').textContent = error ?? '';
     $<HTMLButtonElement>('start').disabled = running || !!error; $('stop').hidden = !running;
-    for (const variant of ['thermo', 'slow'] as const) {
+    for (const variant of ['thermo', 'slow', 'missing'] as const) {
       const button = $(`${variant}-variant`); button.classList.toggle('active', puzzle.variant === variant);
       button.setAttribute('aria-pressed', String(puzzle.variant === variant));
     }
@@ -109,7 +109,7 @@ export function mountSimulationPage() {
     stats();
     try { await showPage(); } catch { $('status').textContent = 'Could not load these saved grids.'; }
   };
-  for (const variant of ['thermo', 'slow'] as const) $(`${variant}-variant`).onclick = () => { puzzle.variant = variant; controls(); };
+  for (const variant of ['thermo', 'slow', 'missing'] as const) $(`${variant}-variant`).onclick = () => { puzzle.variant = variant; controls(); };
   for (const id of ['no-givens', 'logical-only', 'symmetric-thermos'] as const) $<HTMLInputElement>(id).checked = !!puzzle[id === 'no-givens' ? 'noGivens' : id === 'logical-only' ? 'logicalOnly' : 'symmetricThermos'];
   page.querySelectorAll('input, select').forEach(el => el.addEventListener('input', controls));
   controls();

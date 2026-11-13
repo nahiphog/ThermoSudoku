@@ -1,4 +1,4 @@
-export type Variant = 'thermo' | 'slow';
+export type Variant = 'thermo' | 'slow' | 'missing';
 export interface GenerationOptions { symmetricGivens: boolean; symmetricThermos: boolean; noOverlap: boolean; thermometerCount?: number; thermoLengths?: number[]; minThermoLength?: number; logicalOnly?: boolean; noGivens?: boolean }
 export const DEFAULT_GENERATION: GenerationOptions = { symmetricGivens: true, symmetricThermos: true, noOverlap: true, thermometerCount: 6, minThermoLength: 3, logicalOnly: true, noGivens: false };
 export const MIN_THERMO_LENGTH = 3;
@@ -8,7 +8,7 @@ export function blank(variant: Variant = 'thermo', noThermoGivens = true): Puzzl
 export function validatePuzzle(input: unknown): Puzzle {
   const p = input as Puzzle;
   if (!p || p.version !== 1) throw new Error('Unsupported puzzle format. Expected version 1.');
-  if (p.variant !== undefined && !['thermo', 'slow'].includes(p.variant)) throw new Error('Unknown thermometer variant.');
+  if (p.variant !== undefined && !['thermo', 'slow', 'missing'].includes(p.variant)) throw new Error('Unknown thermometer variant.');
   if (p.noThermoGivens !== undefined && typeof p.noThermoGivens !== 'boolean') throw new Error('Invalid generation setting.');
   for (const key of ['symmetricGivens', 'symmetricThermos', 'noOverlap', 'logicalOnly', 'noGivens'] as const) if (p[key] !== undefined && typeof p[key] !== 'boolean') throw new Error('Invalid generation setting.');
   for (const [value, max] of [[p.thermometerCount, 30], [p.minThermoLength, 14]] as const) if (value !== undefined && (!Number.isInteger(value) || value < (max === 30 ? 1 : 2) || value > max)) throw new Error('Invalid thermometer count or minimum length.');
@@ -37,15 +37,16 @@ export function generationError(variant: Variant, options: GenerationOptions): s
   if (options.thermoLengths !== undefined) {
     const lengths = options.thermoLengths;
     if (!Array.isArray(lengths) || lengths.length < 1 || lengths.length > 30 || lengths.some(n => !Number.isInteger(n) || n < 2 || n > 14)) return 'Enter 1–30 comma-separated lengths, each a whole number from 2 to 14.';
-    if (variant === 'thermo' && lengths.some(n => n > 9)) return 'Strict Thermo supports at most 9 cells. Choose Slow Thermo for longer paths.';
+    if (variant !== 'slow' && lengths.some(n => n > 9)) return 'Strict Thermo supports at most 9 cells. Choose Slow Thermo for longer paths.';
     if (lengths.reduce((a, b) => a + b, 0) > 81) return 'The exact thermometer lengths need more than the 81 available cells.';
     if (options.symmetricThermos && lengths.some(n => lengths.filter(v => v === n).length % 2)) return 'Rotational symmetry requires each length an even number of times. Adjust the lengths or turn off rotational thermometer symmetry.';
   }
   const count = options.thermoLengths?.length ?? options.thermometerCount ?? 6, length = options.thermoLengths ? Math.min(...options.thermoLengths) : options.minThermoLength ?? 3;
   if (!Number.isInteger(count) || count < 1 || count > 30 || !Number.isInteger(length) || length < 2 || length > 14) return 'Choose 1–30 thermometers and a minimum length of 2–14 cells.';
-  if (variant === 'thermo' && length > 9) return 'Strict Thermo supports at most 9 cells. Choose Slow Thermo for longer paths.';
+  if (variant !== 'slow' && length > 9) return 'Strict Thermo supports at most 9 cells. Choose Slow Thermo for longer paths.';
   if (count * length > 81) return count + ' non-overlapping thermometers of ' + length + '+ cells need at least ' + count * length + ' cells; the grid has 81.';
   if (options.symmetricThermos && count % 2) return 'Choose an even thermometer count or turn off rotational thermometer symmetry.';
+  if (options.noGivens && variant === 'missing') return 'Missing Thermometer needs givens: replacing every digit d with 10 − d gives another solution when no clues are present.';
   if (options.noGivens && options.symmetricThermos) return 'Turn off rotational thermometer symmetry for a puzzle with no givens. A symmetric layout without clues cannot have a unique Sudoku solution.';
   return null;
 }

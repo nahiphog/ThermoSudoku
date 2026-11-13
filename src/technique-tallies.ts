@@ -14,7 +14,7 @@ export function renderTechniqueTallies(container: HTMLElement, analysis: Analysi
   const state = { analysis, navigate }; rendered.set(container, state);
   const steps = new Map<string, number[]>();
   analysis.frames.forEach((frame, index) => {
-    if (!['logic', 'thermo', 'guess'].includes(frame.kind)) return;
+    if (!['logic', 'thermo', 'guess', 'bulb'].includes(frame.kind)) return;
     const indices = steps.get(frame.title) ?? [];
     indices.push(index); steps.set(frame.title, indices);
   });

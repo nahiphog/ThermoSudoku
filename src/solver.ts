@@ -1,3 +1,4 @@
+import { missingSupports, gridDomains, bulbFindingDescription } from './missing-thermometer';
 import { findPhistomefelRing } from './phistomefel-ring';
 import { bit, cloneGrid, digitsOf, gridFromValues, isBroken, isSolved, PEERS, popcount, setValue, type Grid } from './vendor/sudokui/board';
 import type { Step } from './techniques';
@@ -33,6 +34,11 @@ export function conflicts(p: Puzzle): Set<number> {
   const bad = new Set<number>();
   p.values.forEach((v, c) => { if (v) for (const other of PEERS[c]) if (p.values[other] === v) { bad.add(c); bad.add(other); } });
   for (const t of p.thermos) {
+    if (p.variant === 'missing') {
+      const supports = missingSupports(p.values.map(v => v ? bit(v) : 511), t);
+      if (!supports.forward && !supports.reverse) for (const c of t) bad.add(c);
+      continue;
+    }
     t.forEach((c, i) => {
       const v = p.values[c];
       if (p.variant !== 'slow' && v && (v < i + 1 || v > 9 - (t.length - 1 - i))) bad.add(c);
@@ -48,6 +54,17 @@ export function propagate(g: Grid, thermos: number[][], variant: Variant = 'ther
   let changed = true;
   while (changed) {
     changed = false;
+    if (variant === 'missing') {
+      for (const path of thermos) {
+        const support = missingSupports(gridDomains(g), path);
+        for (let i = 0; i < path.length; i++) {
+          const c = path[i], mask = support.union[i];
+          if (!mask) return false;
+          if (!g.values[c] && g.cands[c] !== mask) { g.cands[c] = mask; changed = true; }
+        }
+      }
+      continue;
+    }
     for (const t of thermos) for (let i = 1; i < t.length; i++) {
       const a = t[i - 1], b = t[i];
       const da = digitsOf(domain(g, a)), db = digitsOf(domain(g, b));
@@ -72,6 +89,13 @@ export function hint(p: Puzzle): Hint | null {
   p = validatePuzzle(p);
   const { grid: g, valid } = candidates(p);
   if (!valid) throw new Error('This position has a contradiction. Check the highlighted digits or undo your last move.');
+  if (p.variant === 'missing') for (const [index, path] of p.thermos.entries()) {
+    const support = missingSupports(gridDomains(g), path);
+    if (!!support.forward !== !!support.reverse) {
+      const cell = support.forward ? path[0] : path.at(-1)!;
+      return { description: bulbFindingDescription(path, cell, index), values: [...g.values], candidates: [...g.cands], technique: 'Bulb finding' };
+    }
+  }
   const base = gridFromValues(p.values);
   const narrowed = [...g.cands].filter((mask, i) => !g.values[i] && mask !== base.cands[i]).length;
   const descriptions: string[] = narrowed ? [`Thermometer order narrows the candidates in ${narrowed} cells before applying Sudoku techniques.`] : [];

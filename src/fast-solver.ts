@@ -1,3 +1,4 @@
+import { missingSupports } from './missing-thermometer';
 import { hasRepeatedStep, validatePuzzle, type Puzzle, type Variant } from './puzzle';
 import { ALL_CANDS, bit, digitsOf, PEERS, popcount, UNITS } from './vendor/sudokui/board';
 
@@ -14,15 +15,16 @@ export interface CompiledConstraints {
   links: Link[][];
   repeats: [number, number][];
   slow: boolean;
+  missing: number[][];
 }
 export function compileConstraints(thermos: number[][], variant: Variant): CompiledConstraints {
   const links: Link[][] = Array.from({ length: 81 }, () => []), repeats: [number, number][] = [];
-  for (const path of thermos) for (let i = 1; i < path.length; i++) {
+  for (const path of variant === 'missing' ? [] : thermos) for (let i = 1; i < path.length; i++) {
     const a = path[i - 1], b = path[i], equal = variant === 'slow' && !PEERS[a].includes(b);
     links[a].push({ other: b, forward: true, equal }); links[b].push({ other: a, forward: false, equal });
     if (equal) repeats.push([a, b]);
   }
-  return { links, repeats, slow: variant === 'slow' };
+  return { links, repeats, slow: variant === 'slow', missing: variant === 'missing' ? thermos : [] };
 }
 
 /** Every cell, including a fixed cell, has a nonempty domain. Changed cells
@@ -53,6 +55,10 @@ export function propagateDomains(domains: Uint16Array, compiled: CompiledConstra
       if (only === -1) return false;
       if (only >= 0 && !narrow(only, b)) return false;
     }
+    for (const path of compiled.missing) {
+      const support = missingSupports(domains, path);
+      for (let i = 0; i < path.length; i++) if (!narrow(path[i], support.union[i])) return false;
+    }
     if (head === queue.length) break;
   }
   return !compiled.slow || compiled.repeats.some(([a, b]) => (domains[a] & domains[b]) !== 0);
@@ -61,7 +67,7 @@ export function propagateDomains(domains: Uint16Array, compiled: CompiledConstra
 export function validCompletion(values: number[], thermos: number[][], variant: Variant): boolean {
   return values.length === 81 && values.every(d => Number.isInteger(d) && d >= 1 && d <= 9)
     && UNITS.every(unit => new Set(unit.map(c => values[c])).size === 9)
-    && thermos.every(path => path.every((c, i) => i === 0 || (variant === 'slow' ? values[path[i - 1]] <= values[c] : values[path[i - 1]] < values[c])))
+    && thermos.every(path => path.every((c, i) => i === 0 || (variant === 'slow' ? values[path[i - 1]] <= values[c] : values[path[i - 1]] < values[c])) || (variant === 'missing' && path.every((c, i) => i === 0 || values[path[i - 1]] > values[c])))
     && (variant !== 'slow' || hasRepeatedStep(values, thermos));
 }
 

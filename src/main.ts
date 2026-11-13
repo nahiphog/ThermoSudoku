@@ -1,3 +1,4 @@
+import { thermometerMarkup } from './grid-markup';
 import { generationControls } from './generation-controls';
 import { mountSimulationPage } from './simulation-page';
 import { mountNavigation } from './navigation';
@@ -73,6 +74,7 @@ $('#app').innerHTML = `
   <p>Both puzzles follow normal Sudoku rules: fill every row, column, and 3 × 3 box with the digits 1–9, without repeats. Read each thermometer from its round bulb toward its tip.</p>
   <section aria-labelledby="about-thermo"><h3 id="about-thermo">Thermo Sudoku</h3><p>Digits must strictly increase along each thermometer. Every digit must be larger than the one before it; for example, 1 → 3 → 6 → 9.</p></section>
   <section aria-labelledby="about-slow"><h3 id="about-slow">Slow Thermo Sudoku</h3><p>Digits may increase or stay the same along each thermometer, but must never decrease; for example, 1 → 3 → 3 → 6. Equal digits are allowed only when they do not share a row, column, or 3 × 3 box.</p><p>In this app, the completed grid must include at least one equal consecutive pair somewhere on a thermometer.</p></section>
+<section aria-labelledby="about-missing"><h3 id="about-missing">Missing Thermometer</h3><p>Normal sudoku rules apply. Digits along a thermometer must strictly increase from bulb to tip. The bulbs in this sudoku are missing from the thermometer shapes and must be placed at one of the open ends of thermometers.</p></section>
 </dialog>
 <dialog id="transfer"><form method="dialog"><div class="dialog-heading"><h2 id="transfer-title">Import puzzle</h2><button aria-label="Close dialog" class="text-button">✕</button></div></form><p id="transfer-help"></p><textarea id="puzzle-json" spellcheck="false" aria-label="Puzzle JSON"></textarea><p id="import-error" role="alert"></p><button id="load-json" class="primary full">Import puzzle</button><button id="download" class="primary full" hidden>Download JSON</button></dialog>
 <dialog id="confirm"><h2 id="confirm-title"></h2><p>This replaces the current puzzle.</p><div class="button-pair"><button id="confirm-no" class="outline">Keep puzzle</button><button id="confirm-yes" class="primary">Continue</button></div></dialog>`;
@@ -122,14 +124,13 @@ function render() {
     const remaining = frame ? digitsOf(frame.candidates[i]) : [];
     b.innerHTML = values[i] ? `<span class="digit">${values[i]}</span>` : frame ? `<span class="pencil">${Array.from({ length: 9 }, (_, d) => `<span class="${removed.includes(d + 1) ? 'removed-candidate' : ''}">${removed.includes(d + 1) || remaining.includes(d + 1) ? d + 1 : ''}</span>`).join('')}</span>` : '';
   });
-  const point = (c: number) => `${c % 9 * 100 + 50},${Math.floor(c / 9) * 100 + 50}`;
-  $('#thermos').innerHTML = puzzle.thermos.map(t => `<g><polyline points="${t.map(point).join(' ')}"/><circle cx="${t[0] % 9 * 100 + 50}" cy="${Math.floor(t[0] / 9) * 100 + 50}" r="34"/></g>`).join('');
+  $('#thermos').innerHTML = thermometerMarkup(puzzle, values, frame?.bulbEnds);
   $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
   $('#status').hidden = !busy && !progress && !status && !detail;
   $('#status-title').textContent = progress ? `Step ${progress.stage} of 6 · Attempt ${progress.attempt}` : busy === 'generate' ? 'Generating your puzzle…' : busy ? 'Checking every constraint…' : status;
   $('#status-detail').textContent = progress?.text ?? (busy ? 'Looking for exactly one solution with your selected rules.' : detail);
   for (const [id, key] of Object.entries(settings)) { $<HTMLInputElement>(`#${id}`).checked = !!puzzle[key]; $<HTMLInputElement>(`#${id}`).disabled = !!busy; }
-  for (const v of ['thermo', 'slow'] as const) {
+  for (const v of ['thermo', 'slow', 'missing'] as const) {
     const b = $<HTMLButtonElement>(`#${v}-variant`); b.classList.toggle('active', puzzle.variant === v); b.setAttribute('aria-pressed', String(puzzle.variant === v)); b.disabled = !!busy;
   }
   for (const id of ['reveal', 'copy-image']) $<HTMLButtonElement>(`#${id}`).disabled = !!busy;
@@ -185,9 +186,9 @@ $('#thermo-lengths').oninput = e => {
 for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).onchange = e => {
   puzzle[key] = (e.target as HTMLInputElement).checked; save(); message('Generation options updated.', 'These settings apply when you generate your next puzzle.'); render();
 };
-for (const v of ['thermo', 'slow'] as const) $(`#${v}-variant`).onclick = () => {
+for (const v of ['thermo', 'slow', 'missing'] as const) $(`#${v}-variant`).onclick = () => {
   if (puzzle.variant === v) return;
-  if (v === 'thermo' && puzzle.thermos.some(t => t.length > 9)) { message('This path is too long for strict Thermo.', 'Start a new puzzle before switching variants.'); render(); return; }
+  if (v !== 'slow' && puzzle.thermos.some(t => t.length > 9)) { message('This path is too long for strict Thermo.', 'Start a new puzzle before switching variants.'); render(); return; }
   puzzle.variant = v; solution = null; revealed = false; report = null; slide = null; save(); message('Variant updated.', 'Generate a puzzle with the selected rules.'); render();
 };
 window.addEventListener('keydown', e => {

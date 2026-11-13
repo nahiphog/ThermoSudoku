@@ -134,7 +134,7 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
   while (performance.now() < deadline) {
     attempts++;
     progress({ stage: 1, attempt: attempts, text: `Drawing ${count} non-overlapping thermometers of ${minLength}+ cells.` });
-    const paths = timed('layout', () => drawLayout(options.symmetricThermos, random, count, minLength, variant === 'thermo' ? 9 : 14, options.thermoLengths));
+    const paths = timed('layout', () => drawLayout(options.symmetricThermos, random, count, minLength, variant === 'slow' ? 14 : 9, options.thermoLengths));
     if (!paths) { profile.layoutFailures++; continue; }
     const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths;
     if (options.thermoLengths) p.thermoLengths = [...options.thermoLengths];

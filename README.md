@@ -34,6 +34,16 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 - **Thermo / Slow Thermo:** choose strictly increasing or nondecreasing paths.
   Slow Thermo requires at least one equal consecutive pair on a thermometer
   in the completed grid. Normal Sudoku rules still apply to those cells.
+- **Missing Thermometer:** normal Sudoku and strictly increasing thermometers,
+  with the bulb hidden at either open end. Both solvers consider both complete
+  path directions when checking uniqueness. Puzzle grids and their copied images
+  omit bulbs; revealed solutions show the smaller endpoint as the bulb.
+  Walkthroughs reveal each bulb only when its direction is established.
+  **Bulb finding** is exclusive to this variant and adds 10 points per recorded
+  placement (including trial branches); its step links appear in the tallies.
+  Paths have at most 9 cells. No-givens generation is unavailable because digit
+  complementation produces a second solution. Generate and Simulation both
+  offer this category, and About contains its rules.
 - **Generate puzzle:** follows the six-stage layout-first process below.
   No thermometer cell (including bulbs) contains a given; clue positions are
   rotationally symmetric and digging runs to completion without a clue target.
@@ -74,9 +84,10 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   images are unavailable or access is denied, downloads the same PNG instead.
 - JSON import/export includes givens, entries, and ordered thermometer paths.
   The current puzzle is also saved in local storage when available.
-- **Copy puzzle string:** copies `TS1|T|<81 digits>|<paths>` (`S` for Slow Thermo).
+- **Copy puzzle string:** copies `TS1|T|<81 digits>|<paths>` (`S` for Slow Thermo, `M` for Missing Thermometer).
   Clues are row-major, with 0 for blanks. Each path concatenates two-digit
-  row/column coordinates (11–99), bulb first; semicolons separate paths.
+  row/column coordinates (11–99), bulb first for Thermo/Slow Thermo; either end first for Missing Thermometer.
+  Semicolons separate paths.
   For example, `112233` represents r1c1 → r2c2 → r3c3. Paste the entire string
   into Import to restore a puzzle. It never includes the solution or generation
   preferences. The version prefix allows future format changes. If clipboard

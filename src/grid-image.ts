@@ -1,3 +1,4 @@
+import { displayBulbs } from './missing-thermometer';
 import type { Puzzle } from './puzzle';
 
 /** Draw the visible grid independently of DOM selection, fonts, and screen size. */
@@ -8,9 +9,11 @@ export function gridImage(puzzle: Puzzle, values: number[]): Promise<Blob> {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 904, 904); ctx.translate(2, 2);
   const x = (c: number) => (c % 9) * 100 + 50, y = (c: number) => Math.floor(c / 9) * 100 + 50;
   ctx.strokeStyle = ctx.fillStyle = '#d0d0d3'; ctx.lineWidth = 32; ctx.lineCap = ctx.lineJoin = 'round';
-  for (const t of puzzle.thermos) {
+  const bulbs = displayBulbs(puzzle, values);
+  for (const [index, t] of puzzle.thermos.entries()) {
     ctx.beginPath(); ctx.moveTo(x(t[0]), y(t[0])); for (const c of t.slice(1)) ctx.lineTo(x(c), y(c)); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x(t[0]), y(t[0]), 34, 0, Math.PI * 2); ctx.fill();
+    const bulb = bulbs[index];
+    if (bulb !== null) { ctx.beginPath(); ctx.arc(x(bulb), y(bulb), 34, 0, Math.PI * 2); ctx.fill(); }
   }
   ctx.lineCap = 'butt';
   for (let i = 0; i <= 9; i++) {

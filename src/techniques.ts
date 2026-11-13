@@ -4,6 +4,7 @@ import type { Step as UpstreamStep } from './vendor/sudokui/steps';
 // App-wide extensions keep the vendored sudokUI catalogue unchanged.
 export const TECHS = {
   ...upstreamTechniques,
+  BULB_FINDING: { name: 'Bulb finding', score: 10, level: 'Easy' as const, category: 'Missing Thermometer', index: 250, implemented: true, enabled: true },
   PHISTOMEFEL_RING: {
     name: 'Phistomefel Ring', score: 200, level: 'Hard' as const,
     category: 'Set equivalence', index: 4000, implemented: true, enabled: true,
