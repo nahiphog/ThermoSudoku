@@ -27,7 +27,7 @@ let lengthsText = puzzle.thermoLengths?.join(',') ?? '';
 let lengthsError: string | null = null;
 
 $('#app').innerHTML = `
-<header class="topbar"><details id="page-menu"><summary>Generate</summary><nav class="page-nav" aria-label="Pages"><a href="?page=generate">Generate</a><a href="?page=import-grid">Import grid</a><a href="?page=techniques">Techniques</a></nav></details><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><div class="header-actions"><a class="source-link" href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">Built with sudokUI ↗</a><button id="about" class="outline" aria-haspopup="dialog" aria-controls="about-dialog">About</button></div></header>
+<header class="topbar"><details id="page-menu"><summary>Generate</summary><nav class="page-nav" aria-label="Pages"><a href="?page=generate">Generate</a><a href="?page=import-grid">Import grid</a><a href="?page=techniques">Techniques</a></nav></details><a class="brand" href="./" aria-label="Thermo home"><img class="brand-icon" src="${import.meta.env.BASE_URL}thermometer.svg" width="32" height="32" alt=""> thermo<span class="brand-dot">.</span></a><div class="header-actions"><button id="about" class="outline" aria-haspopup="dialog" aria-controls="about-dialog">About</button></div></header>
 
 <main id="maker-page">
   <section class="card settings-card" aria-label="Puzzle options">
