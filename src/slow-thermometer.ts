@@ -25,13 +25,20 @@ export function applySlowThermometerBounds(g: Grid, paths: number[][]): boolean 
   return true;
 }
 
+export function slowThermometerStrictPairs(paths: number[][], affected: number[]): [number, number][] {
+  const pairs = new Map<string, [number, number]>();
+  for (const path of paths.filter(path => path.some(c => affected.includes(c)))) {
+    for (let i = 0; i < path.length; i++) for (let j = i + 1; j < path.length; j++) {
+      if (PEERS[path[i]].includes(path[j])) pairs.set(`${path[i]}:${path[j]}`, [path[i], path[j]]);
+    }
+  }
+  return [...pairs.values()];
+}
+
 export function slowThermometerBoundsDescription(paths: number[][], affected: number[]): string {
   const relevant = paths.filter(path => path.some(c => affected.includes(c)));
   const details = relevant.map(path => {
-    const strict: string[] = [];
-    for (let i = 0; i < path.length; i++) for (let j = i + 1; j < path.length; j++) {
-      if (PEERS[path[i]].includes(path[j])) strict.push(`${cellName(path[i])} < ${cellName(path[j])}`);
-    }
+    const strict = slowThermometerStrictPairs([path], affected).map(([a, b]) => `${cellName(a)} < ${cellName(b)}`);
     return `${path.map(cellName).join(' ≤ ')}.${strict.length ? ` Strict peer relationships: ${strict.join(', ')}.` : ''}`;
   });
   return `Digits cannot decrease along a Slow Thermo. Any two cells on its path that share a row, column, or box must differ, so the earlier digit is strictly smaller—even when the cells are not consecutive. Combine these bounds in both directions to remove unsupported candidates. ${details.join(' ')}`;

@@ -1,5 +1,5 @@
 import { bulbFindingDescription } from './missing-thermometer';
-import { slowThermometerBoundsDescription } from './slow-thermometer';
+import { slowThermometerBoundsDescription, slowThermometerStrictPairs } from './slow-thermometer';
 import { TECHS } from './techniques';
 import { conflicts } from './solver';
 import { runLogical } from './logical-runner';
@@ -8,7 +8,7 @@ import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount,
 import { LEVELS, LEVEL_MAX_SCORE, type Level } from './vendor/sudokui/ratings';
 import type { CellDigit } from './vendor/sudokui/steps';
 
-export interface Frame { title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbEnds?: (number | null)[]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
+export interface Frame { title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
 export interface Analysis { frames: Frame[]; score: number; level: Level; hardest: string; guesses: number; backtracks: number; techniques: Record<string, number> }
 /** A replay of the actual solving process, including failed trials and rollback.
  * This is an estimate: upstream technique weights + 5 per thermo reduction +
@@ -20,9 +20,9 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
   let hardestWeight = -1;
   const bulbs = new WeakMap<Grid, (number | null)[]>();
   if (conflicts(p).size) throw new Error('Cannot analyze a contradictory puzzle.');
-  const add = (g: Grid, kind: Frame['kind'], title: string, description: string, placements: CellDigit[] = [], eliminations: CellDigit[] = []) => {
+  const add = (g: Grid, kind: Frame['kind'], title: string, description: string, placements: CellDigit[] = [], eliminations: CellDigit[] = [], strictInequalities?: [number, number][]) => {
     if (result.frames.length >= 20000 || performance.now() >= deadline) throw new Error('Analysis budget reached before a complete walkthrough was recorded. Try generating again.');
-    result.frames.push({ ...(p.variant === 'missing' ? { bulbEnds: [...(bulbs.get(g) ?? p.thermos.map(() => null))] } : {}), title, description, values: [...g.values], candidates: [...g.cands], kind, placements, eliminations });
+    result.frames.push({ ...(p.variant === 'missing' ? { bulbEnds: [...(bulbs.get(g) ?? p.thermos.map(() => null))] } : {}), title, description, values: [...g.values], candidates: [...g.cands], kind, placements, eliminations, ...(strictInequalities ? { strictInequalities } : {}) });
   };
   const credit = (name: string, score: number, level: Level) => {
     result.score += score; result.techniques[name] = (result.techniques[name] ?? 0) + 1;
@@ -39,7 +39,7 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
       thermo: removed => {
         if (p.variant === 'slow') {
           const info = TECHS.SLOW_THERMOMETER_BOUNDS;
-          add(g, 'thermo', info.name, slowThermometerBoundsDescription(p.thermos, removed.map(e => e.cell)), [], removed);
+          add(g, 'thermo', info.name, slowThermometerBoundsDescription(p.thermos, removed.map(e => e.cell)), [], removed, slowThermometerStrictPairs(p.thermos, removed.map(e => e.cell)));
           credit(info.name, info.score, info.level); return;
         }
         add(g, 'thermo', 'Thermometer bounds', `Remove ${removed.length} candidates incompatible with strictly increasing thermometer order. Grey marks remain possible; crossed red marks were removed.`, [], removed);

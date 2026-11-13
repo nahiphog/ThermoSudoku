@@ -49,7 +49,7 @@ $('#app').innerHTML = `
         <input id="slide-range" type="range" min="0" value="0" aria-label="Solution step">
         <div class="button-pair"><button id="slide-prev" class="outline">Previous step</button><button id="slide-next" class="primary">Next step</button></div>
         <div class="button-pair"><button id="slide-first" class="text-button">Starting puzzle</button><button id="slide-last" class="text-button">Completed grid</button></div>
-        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
+        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Teal outlines: cells in the strict inequalities. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
       </section>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
@@ -113,11 +113,13 @@ const visibleValues = () => slide !== null && report ? report.analysis.frames[sl
 function render() {
   const values = visibleValues(), bad = conflicts({ ...puzzle, values });
   const frame = slide !== null ? report?.analysis.frames[slide] : null;
+  const reasonCells = new Set(frame?.strictInequalities?.flat() ?? []);
   cells.forEach((b, i) => {
     b.classList.toggle('selected', i === selected); b.classList.toggle('given', !!puzzle.givens[i]); b.classList.toggle('conflict', bad.has(i));
     b.tabIndex = i === selected ? 0 : -1;
-    b.setAttribute('aria-label', `Row ${Math.floor(i / 9) + 1}, column ${i % 9 + 1}, ${values[i] || 'empty'}${puzzle.givens[i] ? ', given' : ''}`);
+    b.setAttribute('aria-label', `Row ${Math.floor(i / 9) + 1}, column ${i % 9 + 1}, ${values[i] || 'empty'}${puzzle.givens[i] ? ', given' : ''}${reasonCells.has(i) ? ', strict inequality cell' : ''}`);
     b.setAttribute('aria-pressed', String(i === selected));
+    b.classList.toggle('step-reason', reasonCells.has(i));
     b.classList.toggle('step-placement', !!frame?.placements.some(p => p.cell === i));
     b.classList.toggle('step-elimination', !!frame?.eliminations.some(p => p.cell === i));
     const removed = frame?.eliminations.filter(p => p.cell === i).map(p => p.digit) ?? [];

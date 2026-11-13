@@ -25,6 +25,11 @@ it('records the named technique, eliminations, explanation, and tallies', () => 
   expect(frame.eliminations).toContainEqual({ cell: 11, digit: 2 });
   expect(frame.description).toContain('r3c1 < r3c3');
   expect(frame.description).toContain('r3c3 < r2c3');
+  expect(frame.strictInequalities).toContainEqual([18, 20]);
+  expect(frame.strictInequalities).toContainEqual([20, 11]);
+  expect(frame.strictInequalities!.flat()).not.toContain(28);
+  expect(a.frames[0].strictInequalities).toBeUndefined();
+  expect(a.frames.at(-1)!.strictInequalities).toBeUndefined();
   expect(a.techniques['Slow Thermometer bounds']).toBeGreaterThan(0);
   expect(a.techniques['Thermometer bounds']).toBeUndefined();
   const fast = fastSolve(p, 30000);
