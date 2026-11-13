@@ -15,7 +15,7 @@ let puzzle = example(), solution: number[] | null = null, revealed = false, sele
 let worker: Worker | null = null, busy: 'generate' | 'check' | 'solve' | null = null;
 let generationStarted: number | null = null, generationElapsed: number | null = null;
 let generationTimer: ReturnType<typeof setInterval> | null = null;
-let status = 'Ready to generate.', detail = 'Choose your puzzle options above the grid.';
+let status = '', detail = '';
 let report: GeneratedPuzzle | null = null, slide: number | null = null, progress: GenerationProgress | null = null;
 try {
   const saved = localStorage.getItem('thermo-studio-v1');
@@ -33,9 +33,7 @@ $('#app').innerHTML = `
   <section class="card settings-card" aria-label="Puzzle options">
     <div class="settings-heading"><h1>Generate</h1><div class="mode-switch" aria-label="Thermometer variant"><button id="thermo-variant">Thermo</button><button id="slow-variant">Slow Thermo</button></div></div>
     <div class="generation-options">
-      <label>Number of thermometers <select id="thermometer-count">${Array.from({length:30}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}</select></label>
-      <label>Minimum thermometer length <select id="min-thermo-length">${Array.from({length:13}, (_, i) => `<option value="${i+2}">${i+2} cells</option>`).join('')}</select></label>
-      <div class="exact-lengths"><label for="thermo-lengths">Exact thermometer lengths (optional)</label><input id="thermo-lengths" type="text" placeholder="4,4,4,5" aria-describedby="lengths-help generation-error"><p id="lengths-help" class="muted">Comma-separated cell counts, including each bulb. Overrides count and minimum length. Leave blank to use those settings.</p></div>
+      <div class="exact-lengths"><label for="thermo-lengths">Exact thermometer lengths (optional)</label><input id="thermo-lengths" type="text" placeholder="4,4,4,5" aria-describedby="lengths-help generation-error"><p id="lengths-help" class="muted">Comma-separated cell counts, including each bulb. Enter one length per thermometer, or leave blank for automatic lengths.</p></div>
       <label><input id="no-givens" type="checkbox"> No given cells</label>
       <label><input id="logical-only" type="checkbox"> Logical techniques only (no Brute force)</label>
       <label><input id="symmetric-thermos" type="checkbox"> Rotationally symmetric thermometers</label>
@@ -73,7 +71,6 @@ $('#app').innerHTML = `
     </aside>
   </div>
   <section class="bottom-actions"><div><button id="new" class="text-button">＋ New puzzle</button><button id="example" class="text-button">Load example</button></div><div><button id="import" class="text-button">↓ Import</button><button id="export" class="text-button">↑ Export</button></div></section>
-  <footer><span>Made for curious minds.</span><span>Thermo Sudoku · GPL-3.0 · <a href="https://github.com/AImenes/sudokUI" target="_blank" rel="noreferrer">sudokUI techniques</a></span></footer>
 </main>
 <dialog id="about-dialog" aria-labelledby="about-title">
   <form method="dialog"><div class="dialog-heading"><h2 id="about-title">About the puzzles</h2><button aria-label="Close About" class="text-button" autofocus>✕</button></div></form>
@@ -93,7 +90,6 @@ const cells = Array.from({ length: 81 }, (_, i) => {
   b.onclick = () => { selected = i; render(); };
   $('#cells').append(b); return b;
 });
-const numericSettings = { 'thermometer-count': 'thermometerCount', 'min-thermo-length': 'minThermoLength' } as const;
 const settings = {
   'symmetric-thermos': 'symmetricThermos',
   'logical-only': 'logicalOnly',
@@ -133,6 +129,7 @@ function render() {
   const point = (c: number) => `${c % 9 * 100 + 50},${Math.floor(c / 9) * 100 + 50}`;
   $('#thermos').innerHTML = puzzle.thermos.map(t => `<g><polyline points="${t.map(point).join(' ')}"/><circle cx="${t[0] % 9 * 100 + 50}" cy="${Math.floor(t[0] / 9) * 100 + 50}" r="34"/></g>`).join('');
   $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
+  $('#status').hidden = !busy && !progress && !status && !detail;
   $('#status-title').textContent = progress ? `Step ${progress.stage} of 6 · Attempt ${progress.attempt}` : busy === 'generate' ? 'Generating your puzzle…' : busy ? 'Checking every constraint…' : status;
   $('#status-detail').textContent = progress?.text ?? (busy ? 'Looking for exactly one solution with your selected rules.' : detail);
   for (const [id, key] of Object.entries(settings)) { $<HTMLInputElement>(`#${id}`).checked = !!puzzle[key]; $<HTMLInputElement>(`#${id}`).disabled = !!busy; }
@@ -154,9 +151,6 @@ function render() {
   $<HTMLButtonElement>('#generate').disabled = !busy && !!invalid;
   $('#generate').textContent = busy ? 'Cancel' : 'Generate puzzle';
   updateElapsed();
-  for (const [id, key] of Object.entries(numericSettings)) {
-    const select = $<HTMLSelectElement>(`#${id}`); select.value = String(puzzle.thermoLengths?.length ? (key === 'thermometerCount' ? puzzle.thermoLengths.length : Math.min(...puzzle.thermoLengths)) : puzzle[key] ?? (key === 'thermometerCount' ? 6 : 3)); select.disabled = !!busy || !!lengthsText.trim();
-  }
   $('#walkthrough-panel').hidden = slide === null || !report;
   if (report) {
     const { stats: s, analysis: a } = report;
@@ -187,9 +181,6 @@ $('#thermo-lengths').oninput = e => {
     if (!generationError(puzzle.variant, puzzle)) save();
   }
   render();
-};
-for (const [id, key] of Object.entries(numericSettings)) $<HTMLSelectElement>(`#${id}`).onchange = e => {
-  puzzle[key] = Number((e.target as HTMLSelectElement).value); save(); render();
 };
 for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).onchange = e => {
   puzzle[key] = (e.target as HTMLInputElement).checked; save(); message('Generation options updated.', 'These settings apply when you generate your next puzzle.'); render();
@@ -262,7 +253,7 @@ $('#new').onclick = () => confirmChange('Start a new puzzle?', () => {
   const next = blank(puzzle.variant, puzzle.noThermoGivens);
   for (const key of Object.values(settings)) next[key] = !!puzzle[key];
   next.thermometerCount = puzzle.thermometerCount; next.minThermoLength = puzzle.minThermoLength;
-  replace(next); message('Ready to generate.', 'Choose your options and generate a puzzle.'); render();
+  replace(next); message('', ''); render();
 });
 $('#example').onclick = () => confirmChange('Load the example puzzle?', () => { replace(example()); message('Example loaded.', 'This fixed example predates the new generation settings.'); render(); });
 function download(blob: Blob, filename: string) {

@@ -1,18 +1,19 @@
 import { expect, test } from '@playwright/test';
 test('Generate exact lengths and centered navigation work on desktop and mobile', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('#status')).not.toBeVisible();
   await expect(page.getByRole('heading', { name: 'Generate', exact: true })).toBeVisible();
   await page.locator('#thermo-lengths').fill('4,4,4,5');
   await expect(page.locator('#generation-error')).toContainText('each length an even number');
   await page.locator('#symmetric-thermos').uncheck();
   await expect(page.locator('#generate')).toBeEnabled();
-  await expect(page.locator('#thermometer-count')).toBeDisabled();
+  await expect(page.locator('#thermometer-count, #min-thermo-length')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('#thermo-lengths')).toHaveValue('4,4,4,5');
   await page.locator('#thermo-lengths').fill('4,,5');
   await expect(page.locator('#generate')).toBeDisabled();
   await page.locator('#thermo-lengths').fill('');
-  await expect(page.locator('#thermometer-count')).toBeEnabled();
+  await expect(page.locator('#generate')).toBeEnabled();
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const brand = await page.locator('.brand').boundingBox();

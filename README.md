@@ -28,10 +28,9 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   **Techniques**. The Techniques page lists the supported repertoire in ascending
   rating order, including thermometer bounds and Brute force.
 - **Exact thermometer lengths:** optionally enter comma-separated lengths such
-  as `4,4,4,5`. This overrides count and minimum length and includes the bulb in
+  as `4,4,4,5`. This sets the number and length of thermometers and includes the bulb in
   each length. Rotational symmetry requires every length to occur an even number
-  of times; turn symmetry off for unmatched lengths. Blank restores the usual
-  count/minimum controls. Exact lengths persist in saved and exported JSON.
+  of times; turn symmetry off for unmatched lengths. Leave blank for automatic lengths. Exact lengths persist in saved and exported JSON.
 - **Thermo / Slow Thermo:** choose strictly increasing or nondecreasing paths.
   Slow Thermo requires at least one equal consecutive pair on a thermometer
   in the completed grid. Normal Sudoku rules still apply to those cells.
