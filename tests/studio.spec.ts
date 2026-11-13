@@ -1,3 +1,4 @@
+import { checkTallyLinks } from './tally-helpers';
 import { expect, test, type Page } from '@playwright/test';
 test.setTimeout(90000);
 const optionLabels = ['Rotationally symmetric thermometers'];
@@ -177,11 +178,12 @@ test('walkthrough navigates from original puzzle to full solution without editin
   await expect(page.locator('#slide-title')).toHaveText('Starting puzzle');
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   await expect(page.locator('#technique-tallies tbody tr').first()).toBeVisible();
+  await checkTallyLinks(page, '#technique-tallies', '#slide-range', '#slide-title', '#board');
   const tallyBefore = await page.locator('#technique-tallies').textContent();
   await expect(page.locator('#slide-prev')).toBeDisabled();
   await expect(page.locator('#board .pencil').first()).toBeVisible();
   await page.getByRole('button', { name: 'Next step' }).click();
-  await expect(page.locator('#slide-count')).toContainText('Slide 2');
+  await expect(page.locator('#slide-count')).toContainText('Step 2');
   await page.getByRole('button', { name: 'Previous step' }).click();
   await expect(page.locator('#slide-title')).toHaveText('Starting puzzle');
   await page.getByRole('button', { name: 'Completed grid', exact: true }).click();
@@ -189,11 +191,11 @@ test('walkthrough navigates from original puzzle to full solution without editin
   await expect(page.locator('#filled')).toContainText('81 / 81');
   await expect(page.locator('#slide-next')).toBeDisabled();
   await page.getByLabel('Solution step', { exact: true }).fill('1');
-  await expect(page.locator('#slide-count')).toContainText('Slide 2');
+  await expect(page.locator('#slide-count')).toContainText('Step 2');
   await page.locator('#walkthrough-panel').screenshot({ path: 'test-results/walkthrough.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Next step' }).click();
-  await expect(page.locator('#slide-count')).toContainText('Slide 3');
+  await expect(page.locator('#slide-count')).toContainText('Step 3');
   expect(await page.locator('#walkthrough-panel').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   const walkGrid = await page.locator('#board').boundingBox(), lastCell = await page.locator('#board .cell').last().boundingBox();
   expect(lastCell!.y + lastCell!.height).toBeLessThanOrEqual(walkGrid!.y + walkGrid!.height);

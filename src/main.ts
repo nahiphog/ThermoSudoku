@@ -159,12 +159,16 @@ function render() {
     $('#technique-summary').textContent = Object.entries(a.techniques).map(([name, count]) => `${name}: ${count}`).join(' · ');
     $<HTMLButtonElement>('#walkthrough').disabled = !!busy;
     if (frame && slide !== null) {
-      renderTechniqueTallies($('#technique-tallies'), a);
+      renderTechniqueTallies($('#technique-tallies'), a, index => {
+        slide = index; render();
+        $('#slide-title').tabIndex = -1; $('#slide-title').focus({ preventScroll: true });
+        $('#board').scrollIntoView({ block: 'start' });
+      });
 
-      $('#slide-count').textContent = `Slide ${slide + 1} of ${a.frames.length}`; $('#slide-title').textContent = frame.title;
+      $('#slide-count').textContent = `Step ${slide + 1} of ${a.frames.length}`; $('#slide-title').textContent = frame.title;
       $('#slide-description').textContent = frame.description;
       const range = $<HTMLInputElement>('#slide-range'); range.max = String(a.frames.length - 1); range.value = String(slide);
-      range.setAttribute('aria-valuetext', `Slide ${slide + 1}: ${frame.title}`);
+      range.setAttribute('aria-valuetext', `Step ${slide + 1}: ${frame.title}`);
       $<HTMLButtonElement>('#slide-prev').disabled = slide === 0; $<HTMLButtonElement>('#slide-next').disabled = slide === a.frames.length - 1;
     }
   }

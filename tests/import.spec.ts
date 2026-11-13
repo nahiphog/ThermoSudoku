@@ -1,3 +1,4 @@
+import { checkTallyLinks } from './tally-helpers';
 import { techniqueScore } from '../src/technique-tallies';
 import { expect, test } from '@playwright/test';
 
@@ -14,6 +15,7 @@ test('import page shows a unique completion alongside a navigable walkthrough', 
   await expect(page.locator('#import-walk-board polyline')).toHaveCount(1);
   await expect(page.locator('#import-step-title')).toHaveText('Starting puzzle');
   await expect(page.locator('#import-tallies tbody tr').first()).toBeVisible();
+  await checkTallyLinks(page, '#import-tallies', '#import-step-range', '#import-step-title', '#import-walk-board');
   const tallies = await page.locator('#import-tallies').textContent();
   const ratings = (await page.locator('#import-tallies tbody th').allTextContents()).map(techniqueScore);
   expect(ratings).toEqual([...ratings].sort((a, b) => a - b));

@@ -87,7 +87,6 @@ export function mountImportPage() {
       const analysis = result.analysis; let index = 0;
       $('#import-walk-content').innerHTML = `<p id="import-rating"></p><div id="import-tallies"></div><div id="import-walk-board" class="board" aria-label="Walkthrough grid"></div><p id="import-step-count"></p><h3 id="import-step-title"></h3><p id="import-step-description" aria-live="polite"></p><input id="import-step-range" type="range" min="0" max="${analysis.frames.length - 1}" value="0" aria-label="Imported solution step"><div class="button-pair"><button id="import-prev" class="outline">Previous step</button><button id="import-next" class="primary">Next step</button></div><div class="button-pair"><button id="import-first" class="text-button">Starting puzzle</button><button id="import-last" class="text-button">Completed step</button></div><p class="muted">Purple: placed digit. Red crossed marks: eliminated candidates. Trials and rollbacks are labeled.</p>`;
       $('#import-rating').textContent = `Difficulty rating: ${analysis.score} (estimated). Hardest technique: ${analysis.hardest}.`;
-      renderTechniqueTallies($('#import-tallies'), analysis);
       const renderStep = () => {
         const frame = analysis.frames[index]; $('#import-walk-board').innerHTML = board(p, frame.values, [], frame);
         $('#import-step-count').textContent = `Step ${index + 1} of ${analysis.frames.length}`;
@@ -95,6 +94,11 @@ export function mountImportPage() {
         $<HTMLInputElement>('#import-step-range').value = String(index);
         $<HTMLButtonElement>('#import-prev').disabled = index === 0; $<HTMLButtonElement>('#import-next').disabled = index === analysis.frames.length - 1;
       };
+      renderTechniqueTallies($('#import-tallies'), analysis, step => {
+        index = step; renderStep();
+        $('#import-step-title').tabIndex = -1; $('#import-step-title').focus({ preventScroll: true });
+        $('#import-walk-board').scrollIntoView({ block: 'start' });
+      });
       $('#import-prev').onclick = () => { index = Math.max(0, index - 1); renderStep(); };
       $('#import-next').onclick = () => { index = Math.min(analysis.frames.length - 1, index + 1); renderStep(); };
       $('#import-first').onclick = () => { index = 0; renderStep(); };
