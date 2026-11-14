@@ -3,3 +3,5 @@
 .unit-arrow{position:absolute;display:flex;align-items:center;justify-content:center;font:700 20px/1 sans-serif;width:20px;height:20px}
 .row-arrow{left:-23px;transform:translateY(-50%)}
 .column-arrow{top:-23px;transform:translateX(-50%)}
+
+.unit-box-outline{position:absolute;width:calc(100% / 3);height:calc(100% / 3);border:3px solid #087f76;background:transparent;pointer-events:none}

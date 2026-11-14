@@ -51,7 +51,7 @@ $('#app').innerHTML = `
         <input id="slide-range" type="range" min="0" value="0" aria-label="Solution step">
         <div class="button-pair"><button id="slide-prev" class="outline">Previous step</button><button id="slide-next" class="primary">Next step</button></div>
         <div class="button-pair"><button id="slide-first" class="text-button">Starting puzzle</button><button id="slide-last" class="text-button">Completed grid</button></div>
-        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Candidate highlights: blue pattern, amber support, purple fins, green restored; red crossed candidates are eliminated. Outside arrows: involved rows and columns. Teal: specific cells and boxes. Green bulb: found end; dashed red: ruled-out end. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
+        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Candidate highlights: blue pattern, amber support, purple fins, green restored; red crossed candidates are eliminated. Outside arrows: involved rows and columns. Teal outlines: involved boxes. Cell and candidate marks: specific evidence. Green bulb: found end; dashed red: ruled-out end. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
       </section>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>

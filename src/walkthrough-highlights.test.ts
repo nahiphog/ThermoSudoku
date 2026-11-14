@@ -9,6 +9,7 @@ import { board } from './grid-markup';
 
 it('preserves all house and pattern evidence, not just the cells being changed', () => {
   expect(techniqueCells(fullHouseStep(0, 0, 1))).toEqual([0]);
+  expect(techniqueCells(fullHouseStep(18, 0, 1))).toEqual([0]);
   const g = emptyGrid();
   for (const c of PHISTOMEFEL_RING) g.cands[c] &= ~bit(9);
   expect(techniqueCells(findPhistomefelRing(g)!)).toEqual([...PHISTOMEFEL_RING, ...PHISTOMEFEL_CORNERS].sort((a,b) => a-b));

@@ -67,7 +67,7 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
       step: step => {
         const info = TECHS[step.tech]; credit(info.name, info.score, info.level);
         add(g, 'logic', info.name, step.description, step.placements, step.eliminations, undefined, techniqueCells(step), techniqueCandidates(step));
-        result.frames.at(-1)!.relatedUnits = [...new Set((step.units ?? []).map(band => band.unit).filter(unit => unit < 18))];
+        result.frames.at(-1)!.relatedUnits = [...new Set((step.units ?? []).map(band => band.unit))];
       },
     }, bulbs.get(g)!);
     if (state === 'solved') return g;

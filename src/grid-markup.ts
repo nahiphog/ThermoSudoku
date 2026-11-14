@@ -24,11 +24,15 @@ export function bulbHighlight(frame: Frame | null | undefined, cell: number): st
   return cell === finding.bulb ? 'bulb-found' : cell === finding.rejected ? 'bulb-rejected' : 'bulb-path';
 }
 
-/** House context lives outside the cells; candidate evidence stays inside. */
+/** Rows/columns use outside arrows; boxes use a single perimeter outline. */
 export function unitArrows(frame?: Frame | null): string {
-  const units = [...new Set(frame?.relatedUnits ?? [])].filter(u => u >= 0 && u < 18);
+  const units = [...new Set(frame?.relatedUnits ?? [])].filter(u => u >= 0 && u < 27);
   if (!frame) return '';
   return '<div class="unit-arrows">' + units.map(u => {
+    if (u >= 18) {
+      const box = u - 18;
+      return '<span class="unit-box-outline" role="img" aria-label="Box ' + (box + 1) + ' involved" style="left:' + ((box % 3) * 100 / 3) + '%;top:' + (Math.floor(box / 3) * 100 / 3) + '%"></span>';
+    }
     const row = u < 9, n = row ? u : u - 9;
     return '<span class="unit-arrow ' + (row ? 'row-arrow' : 'column-arrow') + '" role="img" aria-label="' + (row ? 'Row ' : 'Column ') + (n + 1) + ' involved" style="' + (row ? 'top' : 'left') + ':' + ((n + .5) * 100 / 9) + '%">' + (row ? '→' : '↓') + '</span>';
   }).join('') + '</div>';
