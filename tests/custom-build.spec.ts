@@ -16,6 +16,7 @@ test('Build preserves the layout, displays clues and reveals a verified solution
   await expect(page.locator('#custom-rating')).toBeVisible();
   await expect(page.locator('#custom-score')).toHaveText(/^\d+$/);
   await expect(page.locator('#custom-walk-panel')).toBeVisible();
+  await expect(page.locator('#custom-copy-image')).toBeDisabled();
   await expect(page.locator('#custom-step-prev')).toBeDisabled();
   await page.locator('#custom-step-next').click();
   await expect(page.locator('#custom-step-count')).toContainText('Step 2 of');
@@ -25,6 +26,7 @@ test('Build preserves the layout, displays clues and reveals a verified solution
   await expect(page.locator('#custom-board .digit')).toHaveCount(81);
   await expect(page.locator('#custom-step-next')).toBeDisabled();
   await page.locator('#custom-walk-close').click();
+  await expect(page.locator('#custom-copy-image')).toBeEnabled();
   await expect(page.locator('#custom-board .digit')).toHaveCount(clues);
   await page.locator('#custom-walk-open').click();
   await expect(page.locator('#custom-step-count')).toContainText('Step 1 of');
@@ -38,6 +40,32 @@ test('Build preserves the layout, displays clues and reveals a verified solution
   await page.locator('#custom-undo').click();
   await page.reload();
   await expect(page.locator('#custom-board .digit')).toHaveCount(clues);
+});
+
+test('custom image export copies a PNG and downloads when clipboard access fails', async ({ page }) => {
+  await page.goto('/?page=custom-build');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      write: async (items: ClipboardItem[]) => {
+        const blob = await items[0].getType('image/png');
+        const bitmap = await createImageBitmap(blob);
+        document.body.dataset.copiedImage = `${blob.type}:${bitmap.width}x${bitmap.height}`;
+        bitmap.close();
+      },
+    } });
+  });
+  await page.locator('#custom-board [data-cell="0"]').click();
+  await expect(page.locator('#custom-copy-image')).toBeDisabled();
+  await page.locator('#custom-board [data-cell="1"]').click();
+  await page.locator('#custom-finish').click();
+  await page.locator('#custom-copy-image').click();
+  await expect(page.locator('body')).toHaveAttribute('data-copied-image', 'image/png:904x904');
+  await expect(page.locator('#custom-status')).toContainText('Grid image copied');
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write: async () => { throw new Error('Denied'); } } }));
+  const download = page.waitForEvent('download');
+  await page.locator('#custom-copy-image').click();
+  expect((await download).suggestedFilename()).toBe('thermo-sudoku.png');
+  await expect(page.locator('#custom-status')).toContainText('Grid image downloaded');
 });
 
 test('custom layouts support all variants, validation, persistence and undo', async ({ page }) => {

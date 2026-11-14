@@ -128,6 +128,10 @@ Generate and opens a complete solution walkthrough in the grid. Step controls,
 candidate highlights, bulb deductions, and linked technique tallies replay the
 solve. Return to puzzle restores the original clues. Editing the layout clears
 its analysis; ratings and walkthroughs belong to the current build session.
+**Copy grid as an image** copies the visible puzzle or revealed solution as a
+904×904 PNG, with a download fallback if clipboard access is unavailable. Like
+Generate, image copying is disabled during walkthroughs; finish or cancel any
+unfinished thermometer path before copying.
 
 ## Simulation page
 

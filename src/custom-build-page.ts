@@ -3,6 +3,7 @@ import { thermometerMarkup, bulbHighlight, unitArrows } from './grid-markup';
 import { renderTechniqueTallies } from './technique-tallies';
 import type { Analysis } from './walkthrough';
 import { encodePuzzle } from './puzzle-string';
+import { gridImage } from './grid-image';
 import { cellContents } from './cell-contents';
 import type { CustomBuildResult } from './custom-builder';
 
@@ -39,6 +40,7 @@ export function mountCustomBuildPage() {
       <button id="custom-walk-open" class="outline full" hidden>View solution walkthrough</button>
       <p id="custom-count" class="muted"></p>
       <button id="custom-reveal" class="outline full" hidden>Reveal solution</button>
+      <button id="custom-copy-image" class="outline full">Copy grid as an image</button>
       <div class="custom-toolbar"><button id="custom-undo" class="outline">Undo change</button><button id="custom-clear" class="outline">Clear thermos</button></div>
       <div id="custom-paths" class="custom-paths" aria-label="Placed thermometers"></div>
       <button id="custom-export" class="primary full">Copy puzzle string</button>
@@ -106,6 +108,7 @@ export function mountCustomBuildPage() {
     get<HTMLButtonElement>('#custom-undo').disabled = !history.length || !!draft.length || !!worker;
     get<HTMLButtonElement>('#custom-clear').disabled = !puzzle.thermos.length || !!draft.length || !!worker;
     get<HTMLButtonElement>('#custom-export').disabled = !!draft.length || !!worker;
+    get<HTMLButtonElement>('#custom-copy-image').disabled = !!draft.length || !!worker || slide !== null;
     get<HTMLButtonElement>('#custom-build').disabled = !worker && (!puzzle.thermos.length || !!draft.length);
     get('#custom-build').textContent = worker ? 'Cancel build' : 'Build';
     get('#custom-reveal').hidden = !solution;
@@ -176,6 +179,23 @@ export function mountCustomBuildPage() {
       status(`Puzzle built with ${puzzle.givens.filter(Boolean).length} clues and exactly one solution. Your thermometer layout is unchanged.`); render();
     };
     active.postMessage({ type: 'custom-build', puzzle });
+  };
+  get('#custom-copy-image').onclick = async () => {
+    if (draft.length || worker || slide !== null) return;
+    const png = gridImage(puzzle, [...(revealed && solution ? solution : puzzle.givens)]);
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Clipboard images unavailable');
+      // Start the clipboard write within the click's activation, including Safari.
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+      status('Grid image copied. It matches the currently visible grid.');
+    } catch {
+      try {
+        const url = URL.createObjectURL(await png), link = document.createElement('a');
+        link.href = url; link.download = 'thermo-sudoku.png'; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        status('Grid image downloaded. Clipboard access was unavailable; the same PNG was saved instead.');
+      } catch { status('Could not create the grid image. Please try again in a browser with canvas support.'); }
+    }
   };
   get('#custom-export').onclick = async () => {
     const text = encodePuzzle(puzzle);
