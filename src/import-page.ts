@@ -2,13 +2,13 @@ import { encodePuzzle } from './puzzle-string';
 import { gridImage } from './grid-image';
 import { renderTechniqueTallies } from './technique-tallies';
 import { parseImport, type ImportResult } from './import-check';
-import type { Puzzle } from './puzzle';
+import type { Puzzle, Variant } from './puzzle';
 import { board } from './grid-markup';
 
 
 export function mountImportPage() {
   const page = document.createElement('main'); page.id = 'import-page'; page.hidden = true;
-  page.innerHTML = `<section class="card"><h1>Import grid</h1><p>Paste a copied puzzle string, including one inside a message, or puzzle JSON. You can also paste 81 Sudoku digits (0 or . for blanks); digits alone contain no thermometers.</p><label for="import-text">Puzzle string</label><textarea id="import-text" spellcheck="false"></textarea><div class="button-pair"><button id="inspect-import" class="primary">Check uniqueness</button><button id="stop-import" class="outline" hidden>Cancel check</button></div><p id="import-status" role="status" aria-live="polite"></p></section><div id="import-results"></div>`;
+  page.innerHTML = `<section class="card"><h1>Import grid</h1><p>Paste a copied puzzle string, including one inside a message, or puzzle JSON. You can also paste 81 Sudoku digits (0 or . for blanks); digits alone contain no thermometers.</p><label for="import-variant">Puzzle version</label><select id="import-variant" aria-describedby="import-variant-help"><option value="auto">Detect from puzzle string</option><option value="thermo">Thermo</option><option value="slow">Slow Thermo</option><option value="missing">Missing Thermometer</option></select><p id="import-variant-help" class="muted">Choose a version to override the pasted puzzle’s rules. Automatic detection uses Thermo for digits alone.</p><label for="import-text">Puzzle string</label><textarea id="import-text" spellcheck="false"></textarea><div class="button-pair"><button id="inspect-import" class="primary">Check uniqueness</button><button id="stop-import" class="outline" hidden>Cancel check</button></div><p id="import-status" role="status" aria-live="polite"></p></section><div id="import-results"></div>`;
   document.querySelector('#maker-page')!.after(page);
   const $ = <T extends HTMLElement = HTMLElement>(id: string) => page.querySelector<T>(id)!;
   let worker: Worker | null = null;
@@ -18,10 +18,14 @@ export function mountImportPage() {
     if (page.hidden && worker) { stop(); $('#import-status').textContent = 'Check canceled.'; }
   });
   $('#import-text').addEventListener('input', clear);
+  $('#import-variant').addEventListener('change', clear);
   $('#stop-import').onclick = () => { stop(); $('#import-status').textContent = 'Check canceled. No uniqueness conclusion was reached.'; };
   $('#inspect-import').onclick = () => {
     clear(); let p: Puzzle;
-    try { p = parseImport($<HTMLTextAreaElement>('#import-text').value); }
+    try {
+      const version = $<HTMLSelectElement>('#import-variant').value;
+      p = parseImport($<HTMLTextAreaElement>('#import-text').value, version === 'auto' ? undefined : version as Variant);
+    }
     catch (error) { $('#import-status').textContent = error instanceof Error ? error.message : String(error); return; }
     $<HTMLButtonElement>('#inspect-import').disabled = true; $('#stop-import').hidden = false;
     $('#import-status').textContent = 'Checking uniqueness and preparing the walkthrough…';

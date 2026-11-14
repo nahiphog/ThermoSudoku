@@ -28,3 +28,20 @@ it('returns two different valid solutions for an ambiguous import', () => {
   expect(r.solutions).toHaveLength(2); expect(r.solutions[0]).not.toEqual(r.solutions[1]);
   expect(r.analysis).toBeUndefined();
 });
+
+it('uses an explicitly selected version for tokens, JSON, and digits', () => {
+  const p = example();
+  for (const variant of ['thermo', 'slow', 'missing'] as const) {
+    for (const text of [encodePuzzle(p), JSON.stringify(p), p.givens.join('')]) {
+      const restored = parseImport(text, variant);
+      expect(restored.variant).toBe(variant);
+      expect(restored.givens).toEqual(p.givens);
+      expect(restored.thermos).toEqual(text === p.givens.join('') ? [] : p.thermos);
+    }
+  }
+});
+it('validates thermometer lengths using the selected version', () => {
+  const text = 'TS1|T|' + '0'.repeat(81) + '|11121314151617181929';
+  expect(parseImport(text, 'slow').thermos[0]).toHaveLength(10);
+  expect(() => parseImport(text, 'missing')).toThrow('2–9');
+});
