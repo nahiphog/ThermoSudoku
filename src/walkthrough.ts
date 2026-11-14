@@ -1,3 +1,4 @@
+import { techniqueCells, contradictionCells } from './walkthrough-highlights';
 import { bulbFindingDescription } from './missing-thermometer';
 import { slowBoundsDescription } from './slow-thermometer';
 import { TECHS } from './techniques';
@@ -8,7 +9,7 @@ import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount,
 import { LEVELS, LEVEL_MAX_SCORE, type Level } from './vendor/sudokui/ratings';
 import type { CellDigit } from './vendor/sudokui/steps';
 
-export interface Frame { title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbFinding?: { path: number[]; bulb: number; rejected: number }; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
+export interface Frame { relatedCells?: number[]; title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbFinding?: { path: number[]; bulb: number; rejected: number }; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
 export interface Analysis { frames: Frame[]; score: number; level: Level; hardest: string; guesses: number; backtracks: number; techniques: Record<string, number> }
 /** A replay of the actual solving process, including failed trials and rollback.
  * This is an estimate: upstream technique weights + 5 per thermo reduction +
@@ -20,9 +21,18 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
   let hardestWeight = -1;
   const bulbs = new WeakMap<Grid, (number | null)[]>();
   if (conflicts(p).size) throw new Error('Cannot analyze a contradictory puzzle.');
-  const add = (g: Grid, kind: Frame['kind'], title: string, description: string, placements: CellDigit[] = [], eliminations: CellDigit[] = [], strictInequalities?: [number, number][]) => {
+  const add = (g: Grid, kind: Frame['kind'], title: string, description: string, placements: CellDigit[] = [], eliminations: CellDigit[] = [], strictInequalities?: [number, number][], relatedCells?: number[]) => {
     if (result.frames.length >= 20000 || performance.now() >= deadline) throw new Error('Analysis budget reached before a complete walkthrough was recorded. Try generating again.');
-    result.frames.push({ ...(p.variant === 'missing' ? { bulbEnds: [...(bulbs.get(g) ?? p.thermos.map(() => null))] } : {}), title, description, values: [...g.values], candidates: [...g.cands], kind, placements, eliminations, ...(strictInequalities ? { strictInequalities } : {}) });
+    const previous = result.frames.at(-1);
+    const affected = relatedCells ?? (kind === 'start' ? [...p.givens.flatMap((d, c) => d ? [c] : []), ...p.thermos.flat()]
+      : kind === 'finish' ? Array.from({ length: 81 }, (_, c) => c)
+      : kind === 'contradiction' ? contradictionCells(g, p)
+      : kind === 'backtrack' ? Array.from({ length: 81 }, (_, c) => c).filter(c => previous && (previous.values[c] !== g.values[c] || previous.candidates[c] !== g.cands[c]))
+      : [...placements, ...eliminations].map(p => p.cell));
+    if (kind === 'backtrack') p.thermos.forEach((path, i) => {
+      if (previous?.bulbEnds?.[i] !== bulbs.get(g)?.[i]) affected.push(...path);
+    });
+    result.frames.push({ relatedCells: [...new Set([...affected, ...(strictInequalities?.flat() ?? [])])], ...(p.variant === 'missing' ? { bulbEnds: [...(bulbs.get(g) ?? p.thermos.map(() => null))] } : {}), title, description, values: [...g.values], candidates: [...g.cands], kind, placements, eliminations, ...(strictInequalities ? { strictInequalities } : {}) });
   };
   const credit = (name: string, score: number, level: Level) => {
     result.score += score; result.techniques[name] = (result.techniques[name] ?? 0) + 1;
@@ -35,7 +45,7 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
       bulb: (index, cell) => {
         const info = TECHS.BULB_FINDING; credit(info.name, info.score, info.level);
         const path = p.thermos[index];
-        add(g, 'bulb', info.name, bulbFindingDescription(path, cell, index));
+        add(g, 'bulb', info.name, bulbFindingDescription(path, cell, index), [], [], undefined, path);
         result.frames.at(-1)!.bulbFinding = { path: [...path], bulb: cell, rejected: cell === path[0] ? path.at(-1)! : path[0] };
       },
       slow: deduction => {
@@ -43,16 +53,16 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
         const name = deduction.strict ? info.name : 'Thermometer bounds';
         const pairs: [number, number][] | undefined = deduction.strict
           ? deduction.chain.slice(1).map((c, i) => [deduction.chain[i], c]) : undefined;
-        add(g, 'thermo', name, slowBoundsDescription(deduction), [], deduction.eliminations, pairs);
+        add(g, 'thermo', name, slowBoundsDescription(deduction), [], deduction.eliminations, pairs, deduction.chain);
         credit(name, info.score, info.level);
       },
       thermo: removed => {
-        add(g, 'thermo', 'Thermometer bounds', `Remove ${removed.length} candidates incompatible with strictly increasing thermometer order. Grey marks remain possible; crossed red marks were removed.`, [], removed);
+        add(g, 'thermo', 'Thermometer bounds', `Remove ${removed.length} candidates incompatible with strictly increasing thermometer order. Grey marks remain possible; crossed red marks were removed.`, [], removed, undefined, p.thermos.filter(path => removed.some(e => path.includes(e.cell))).flat());
         credit('Thermometer bounds', 5, 'Easy');
       },
       step: step => {
         const info = TECHS[step.tech]; credit(info.name, info.score, info.level);
-        add(g, 'logic', info.name, step.description, step.placements, step.eliminations);
+        add(g, 'logic', info.name, step.description, step.placements, step.eliminations, undefined, techniqueCells(step));
       },
     }, bulbs.get(g)!);
     if (state === 'solved') return g;
