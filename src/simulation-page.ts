@@ -13,7 +13,7 @@ export function mountSimulationPage() {
     </div>
     <p class="muted">Each trial generates and rates one complete puzzle. Only grids meeting the minimum rating are displayed. The simulation continues while you browse other pages; keep this tab open. Starting again replaces this run’s results.</p>
     <p id="sim-generation-error" role="alert"></p>
-    <div class="button-pair"><button id="sim-start" class="primary">Start simulation</button><button id="sim-stop" class="outline" hidden>Stop simulation</button></div>
+    <button id="sim-start" class="primary">Start simulation</button>
     <p id="sim-status" role="status" aria-live="polite"></p>
     <p id="sim-stats"></p><progress id="sim-progress" value="0" max="1000000" aria-label="Completed trials" hidden></progress>
   </section>
@@ -39,7 +39,8 @@ export function mountSimulationPage() {
   function controls() {
     for (const el of page.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.settings-card input, .settings-card select, .mode-switch button')) el.disabled = running;
     const error = readOptions(); $('generation-error').textContent = error ?? '';
-    $<HTMLButtonElement>('start').disabled = running || !!error; $('stop').hidden = !running;
+    $<HTMLButtonElement>('start').disabled = !running && !!error;
+    $('start').textContent = running ? 'Cancel simulation' : 'Start simulation';
     for (const variant of ['thermo', 'slow', 'missing'] as const) {
       const button = $(`${variant}-variant`); button.classList.toggle('active', puzzle.variant === variant);
       button.setAttribute('aria-pressed', String(puzzle.variant === variant));
@@ -67,7 +68,8 @@ export function mountSimulationPage() {
     $('status').textContent = message; controls();
   }
   $('start').onclick = async () => {
-    if (running || readOptions()) return;
+    if (running) { stop('Simulation stopped. Completed results are retained; the unfinished trial is not counted.'); return; }
+    if (readOptions()) return;
     running = true; const token = ++generation; ++renderVersion; controls();
     $('status').textContent = 'Preparing simulation…';
     try {
@@ -103,7 +105,6 @@ export function mountSimulationPage() {
       next();
     } catch { if (token === generation) stop('Could not start the simulation. Browser storage and Web Workers must be available.'); }
   };
-  $('stop').onclick = () => stop('Simulation stopped. Completed results are retained; the unfinished trial is not counted.');
   for (const [id, delta] of [['prev', -1], ['next', 1]] as const) $(id).onclick = async () => {
     pageIndex = Math.max(0, Math.min(Math.ceil(matches / pageSize) - 1, pageIndex + delta));
     stats();

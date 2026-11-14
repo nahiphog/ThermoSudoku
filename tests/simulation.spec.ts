@@ -4,6 +4,14 @@ test('simulation has Generate options, requested defaults, validation, and a rea
   await page.goto('/?page=simulation');
   await expect(page.getByRole('heading', { name: 'Simulation', exact: true })).toBeVisible();
   await expect(page.locator('#maker-page')).not.toBeVisible();
+  await expect(page.locator('#sim-stop')).toHaveCount(0);
+  for (const selector of ['#sim-start', '#sim-thermo-lengths']) {
+    const ratio = await page.locator(selector).evaluate(el => {
+      const parent = el.parentElement!, style = getComputedStyle(parent);
+      return el.getBoundingClientRect().width / (parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+    });
+    expect(ratio).toBeCloseTo(0.3, 2);
+  }
   await expect(page.locator('#sim-trials')).toHaveValue('1000000');
   await expect(page.locator('#sim-threshold')).toHaveValue('1000');
   expect(await page.locator('#sim-trials option').evaluateAll(options => options.map(o => (o as HTMLOptionElement).value))).toEqual(['1','10','100','1000','10000','1000000']);
@@ -57,7 +65,9 @@ test('simulation filters ratings inclusively, paginates, and stops pending trial
   await page.getByRole('link', { name: 'Generate', exact: true }).click();
   await page.locator('#page-menu summary').click();
   await page.getByRole('link', { name: 'Simulation', exact: true }).click();
-  await page.locator('#sim-stop').click();
+  await expect(page.locator('#sim-start')).toHaveText('Cancel simulation');
+  await page.locator('#sim-start').click();
+  await expect(page.locator('#sim-start')).toHaveText('Start simulation');
   await expect(page.locator('#sim-status')).toContainText('unfinished trial is not counted');
   await expect(page.locator('#sim-results article')).toHaveCount(2);
   await expect(page.locator('#sim-start')).toBeEnabled();
