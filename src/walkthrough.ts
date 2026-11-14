@@ -1,4 +1,4 @@
-import { techniqueCells, contradictionCells } from './walkthrough-highlights';
+import { techniqueCells, techniqueCandidates, contradictionCells, type CandidateHighlight } from './walkthrough-highlights';
 import { bulbFindingDescription } from './missing-thermometer';
 import { slowBoundsDescription } from './slow-thermometer';
 import { TECHS } from './techniques';
@@ -9,7 +9,7 @@ import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount,
 import { LEVELS, LEVEL_MAX_SCORE, type Level } from './vendor/sudokui/ratings';
 import type { CellDigit } from './vendor/sudokui/steps';
 
-export interface Frame { relatedCells?: number[]; title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbFinding?: { path: number[]; bulb: number; rejected: number }; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
+export interface Frame { candidateHighlights?: CandidateHighlight[]; relatedCells?: number[]; title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbFinding?: { path: number[]; bulb: number; rejected: number }; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
 export interface Analysis { frames: Frame[]; score: number; level: Level; hardest: string; guesses: number; backtracks: number; techniques: Record<string, number> }
 /** A replay of the actual solving process, including failed trials and rollback.
  * This is an estimate: upstream technique weights + 5 per thermo reduction +
@@ -21,7 +21,7 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
   let hardestWeight = -1;
   const bulbs = new WeakMap<Grid, (number | null)[]>();
   if (conflicts(p).size) throw new Error('Cannot analyze a contradictory puzzle.');
-  const add = (g: Grid, kind: Frame['kind'], title: string, description: string, placements: CellDigit[] = [], eliminations: CellDigit[] = [], strictInequalities?: [number, number][], relatedCells?: number[]) => {
+  const add = (g: Grid, kind: Frame['kind'], title: string, description: string, placements: CellDigit[] = [], eliminations: CellDigit[] = [], strictInequalities?: [number, number][], relatedCells?: number[], candidateHighlights?: CandidateHighlight[]) => {
     if (result.frames.length >= 20000 || performance.now() >= deadline) throw new Error('Analysis budget reached before a complete walkthrough was recorded. Try generating again.');
     const previous = result.frames.at(-1);
     const affected = relatedCells ?? (kind === 'start' ? [...p.givens.flatMap((d, c) => d ? [c] : []), ...p.thermos.flat()]
@@ -32,7 +32,11 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
     if (kind === 'backtrack') p.thermos.forEach((path, i) => {
       if (previous?.bulbEnds?.[i] !== bulbs.get(g)?.[i]) affected.push(...path);
     });
-    result.frames.push({ relatedCells: [...new Set([...affected, ...(strictInequalities?.flat() ?? [])])], ...(p.variant === 'missing' ? { bulbEnds: [...(bulbs.get(g) ?? p.thermos.map(() => null))] } : {}), title, description, values: [...g.values], candidates: [...g.cands], kind, placements, eliminations, ...(strictInequalities ? { strictInequalities } : {}) });
+    const marks: CandidateHighlight[] = candidateHighlights ?? (kind === 'thermo' || kind === 'bulb' || kind === 'contradiction'
+      ? [...new Set(affected)].flatMap(cell => digitsOf(g.values[cell] ? bit(g.values[cell]) : g.cands[cell]).map(digit => ({ cell, digit, role: 'support' as const })))
+      : kind === 'backtrack' ? affected.flatMap(cell => digitsOf(g.cands[cell] & ~(previous?.candidates[cell] ?? 0)).map(digit => ({ cell, digit, role: 'restored' as const })))
+      : placements.map(({cell, digit}) => ({cell, digit, role: 'pattern' as const})));
+    result.frames.push({ candidateHighlights: marks, relatedCells: [...new Set([...affected, ...(strictInequalities?.flat() ?? [])])], ...(p.variant === 'missing' ? { bulbEnds: [...(bulbs.get(g) ?? p.thermos.map(() => null))] } : {}), title, description, values: [...g.values], candidates: [...g.cands], kind, placements, eliminations, ...(strictInequalities ? { strictInequalities } : {}) });
   };
   const credit = (name: string, score: number, level: Level) => {
     result.score += score; result.techniques[name] = (result.techniques[name] ?? 0) + 1;
@@ -62,7 +66,7 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
       },
       step: step => {
         const info = TECHS[step.tech]; credit(info.name, info.score, info.level);
-        add(g, 'logic', info.name, step.description, step.placements, step.eliminations, undefined, techniqueCells(step));
+        add(g, 'logic', info.name, step.description, step.placements, step.eliminations, undefined, techniqueCells(step), techniqueCandidates(step));
       },
     }, bulbs.get(g)!);
     if (state === 'solved') return g;

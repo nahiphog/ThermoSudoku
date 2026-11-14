@@ -17,6 +17,7 @@ export async function checkTallyLinks(page: Page, table: string, range: string, 
     await expect(page.locator(range)).toHaveValue(String(step - 1));
     await expect(page.locator(title)).toHaveText(name);
     expect(await page.locator(`${board} .step-reason`).count()).toBeGreaterThan(0);
+    expect(await page.locator(`${board} .candidate-pattern, ${board} .candidate-support, ${board} .candidate-fin, ${board} .candidate-restored, ${board} .removed-candidate`).count()).toBeGreaterThan(0);
     expect(await page.locator(`${board} .cells`).innerHTML()).toBe(expectedGrid);
   }
   await page.locator(range).fill('0');

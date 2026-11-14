@@ -1,3 +1,4 @@
+import { cellContents } from './cell-contents';
 import { thermometerMarkup, bulbHighlight } from './grid-markup';
 import { generationControls } from './generation-controls';
 import { mountSimulationPage } from './simulation-page';
@@ -11,7 +12,7 @@ import { blank, example, validatePuzzle, generationError, type Puzzle } from './
 import { conflicts, type SolveResult } from './solver';
 import { gridImage } from './grid-image';
 import type { GeneratedPuzzle, GenerationProgress } from './generator';
-import { digitsOf } from './vendor/sudokui/board';
+
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
 let puzzle = example(), solution: number[] | null = null, revealed = false, selected = 0;
@@ -49,7 +50,7 @@ $('#app').innerHTML = `
         <input id="slide-range" type="range" min="0" value="0" aria-label="Solution step">
         <div class="button-pair"><button id="slide-prev" class="outline">Previous step</button><button id="slide-next" class="primary">Next step</button></div>
         <div class="button-pair"><button id="slide-first" class="text-button">Starting puzzle</button><button id="slide-last" class="text-button">Completed grid</button></div>
-        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Teal: relevant pattern and supporting cells. Green bulb: found end; dashed red: ruled-out end. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
+        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Candidate highlights: blue pattern, amber support, purple fins, green restored; red crossed candidates are eliminated. Teal: relevant cells. Green bulb: found end; dashed red: ruled-out end. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
       </section>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
@@ -113,9 +114,7 @@ function render() {
     b.classList.toggle('step-reason', reasonCells.has(i));
     b.classList.toggle('step-placement', !!frame?.placements.some(p => p.cell === i));
     b.classList.toggle('step-elimination', !!frame?.eliminations.some(p => p.cell === i));
-    const removed = frame?.eliminations.filter(p => p.cell === i).map(p => p.digit) ?? [];
-    const remaining = frame ? digitsOf(frame.candidates[i]) : [];
-    b.innerHTML = values[i] ? `<span class="digit">${values[i]}</span>` : frame ? `<span class="pencil">${Array.from({ length: 9 }, (_, d) => `<span class="${removed.includes(d + 1) ? 'removed-candidate' : ''}">${removed.includes(d + 1) || remaining.includes(d + 1) ? d + 1 : ''}</span>`).join('')}</span>` : '';
+    b.innerHTML = cellContents(values[i], i, frame);
   });
   $('#thermos').innerHTML = thermometerMarkup(puzzle, values, frame?.bulbEnds);
   $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;

@@ -3,6 +3,20 @@ import type { Step } from './techniques';
 import type { Puzzle } from './puzzle';
 import { gridDomains, missingSupports } from './missing-thermometer';
 
+export interface CandidateHighlight { cell: number; digit: number; role: 'pattern' | 'support' | 'fin' | 'restored' }
+export function techniqueCandidates(step: Step): CandidateHighlight[] {
+  const highlights = new Map<string, CandidateHighlight>();
+  const put = (items: { cell: number; digit: number }[], role: CandidateHighlight['role']) => {
+    for (const item of items) highlights.set(`${item.cell}:${item.digit}`, { ...item, role });
+  };
+  put(step.secondary ?? [], 'support');
+  put((step.sets ?? []).flatMap(set => set.members), 'pattern');
+  put((step.links ?? []).flatMap(link => [...link.from, ...link.to]), 'pattern');
+  put([...(step.primary ?? []), ...step.placements], 'pattern');
+  put(step.fins ?? [], 'fin');
+  return [...highlights.values()];
+}
+
 /** Use the finder's evidence, not cell names parsed out of prose. */
 export function techniqueCells(step: Step): number[] {
   return [...new Set([
