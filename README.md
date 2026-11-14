@@ -137,6 +137,12 @@ separately from Generate. When enabled, Build retains any clue whose removal
 would prevent a complete logical solve, then certifies the walkthrough without
 Brute force. Your paths stay fixed. Uncheck it to allow puzzles requiring guesses.
 Changing the option applies to the next build, without changing the current puzzle.
+**No given cells** is off by default and remembered separately from Generate.
+Build checks whether your exact thermometers determine a unique Sudoku with zero
+clues; it never adds clues or changes paths to satisfy this option. Nonunique
+layouts are reported so you can adjust them. Logical-only certification still
+applies when selected. Missing Thermometer requires givens and is rejected with
+this option because digit complementation always produces another solution.
 
 ## Simulation page
 

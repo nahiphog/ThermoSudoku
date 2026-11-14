@@ -22,7 +22,8 @@ export function mountCustomBuildPage() {
       <p>Click or tap a starting cell, then neighboring cells (including diagonals) to draw a thermometer. Choose Finish thermo before starting another. Overlapping paths are allowed.</p>
       <div class="custom-toolbar"><button id="custom-finish" class="primary">Finish thermo</button><button id="custom-back" class="outline">Undo last cell</button><button id="custom-cancel" class="outline">Cancel path</button></div>
       <p class="muted">Finish your paths, then Build a puzzle with one solution using this exact layout. Clues may appear on thermometers when needed.</p>
-      <div class="generation-options"><label><input id="custom-logical-only" type="checkbox" checked> Logical techniques only (no Brute force)</label></div>
+      <div class="generation-options"><label><input id="custom-logical-only" type="checkbox" checked> Logical techniques only (no Brute force)</label><label><input id="custom-no-givens" type="checkbox"> No given cells</label></div>
+      <p class="muted">With No given cells, your thermometers alone must determine one solution. Missing Thermometer requires given cells.</p>
       <button id="custom-build" class="primary">Build</button>
       <p id="custom-status" role="status" aria-live="polite"></p>
     </section>
@@ -57,6 +58,7 @@ export function mountCustomBuildPage() {
   // Older builds stored logicalOnly=false without a user-selectable preference.
   puzzle.logicalOnly = true;
   try { puzzle.logicalOnly = localStorage.getItem('thermo-custom-logical-only') !== 'false'; } catch { /* Optional storage. */ }
+  try { puzzle.noGivens = localStorage.getItem('thermo-custom-no-givens') === 'true'; } catch { /* Optional storage. */ }
   const status = (text: string) => { get('#custom-status').textContent = text; };
   const save = () => { try { localStorage.setItem('thermo-custom-build-v1', JSON.stringify(puzzle)); } catch { /* Optional storage. */ } };
   const remember = () => { history.push(structuredClone(puzzle)); if (history.length > 100) history.shift(); get('#custom-export-label').hidden = true; solution = null; revealed = false; analysis = null; slide = null; puzzle.givens = Array(81).fill(0); puzzle.values = Array(81).fill(0); };
@@ -85,6 +87,8 @@ export function mountCustomBuildPage() {
   function render() {
     get<HTMLInputElement>('#custom-logical-only').checked = puzzle.logicalOnly ?? true;
     get<HTMLInputElement>('#custom-logical-only').disabled = !!worker;
+    get<HTMLInputElement>('#custom-no-givens').checked = puzzle.noGivens ?? false;
+    get<HTMLInputElement>('#custom-no-givens').disabled = !!worker;
     const frame = slide !== null ? analysis?.frames[slide] : null;
     const values = frame?.values ?? (revealed && solution ? solution : puzzle.givens);
     const related = new Set([...(frame?.relatedCells ?? []), ...(frame?.strictInequalities?.flat() ?? [])]);
@@ -159,7 +163,7 @@ export function mountCustomBuildPage() {
   get('#custom-finish').onclick = () => { if (draft.length < 2) return; remember(); puzzle.thermos.push([...draft]); draft = []; save(); status('Thermometer placed. Choose a starting cell for the next one.'); render(); };
   get('#custom-back').onclick = () => { draft.pop(); status('Last cell removed.'); render(); };
   get('#custom-cancel').onclick = () => { draft = []; status('Path canceled.'); render(); };
-  get('#custom-undo').onclick = () => { const previous = history.pop(); if (previous) { previous.logicalOnly = puzzle.logicalOnly; puzzle = previous; solution = null; revealed = false; analysis = null; slide = null; save(); get('#custom-export-label').hidden = true; status('Change undone.'); render(); } };
+  get('#custom-undo').onclick = () => { const previous = history.pop(); if (previous) { previous.logicalOnly = puzzle.logicalOnly; previous.noGivens = puzzle.noGivens; puzzle = previous; solution = null; revealed = false; analysis = null; slide = null; save(); get('#custom-export-label').hidden = true; status('Change undone.'); render(); } };
   get('#custom-clear').onclick = () => { remember(); puzzle.thermos = []; save(); status('Thermometers cleared. Undo change restores them.'); render(); };
   get('#custom-reveal').onclick = () => { slide = null; revealed = !revealed; render(); };
   get('#custom-walk-open').onclick = () => { slide = 0; revealed = false; render(); };
@@ -172,6 +176,11 @@ export function mountCustomBuildPage() {
   get('#custom-logical-only').onchange = event => {
     puzzle.logicalOnly = (event.target as HTMLInputElement).checked;
     try { localStorage.setItem('thermo-custom-logical-only', String(puzzle.logicalOnly)); } catch { /* Optional storage. */ }
+    save(); status('Build option updated. This applies to the next puzzle you build.'); render();
+  };
+  get('#custom-no-givens').onchange = event => {
+    puzzle.noGivens = (event.target as HTMLInputElement).checked;
+    try { localStorage.setItem('thermo-custom-no-givens', String(puzzle.noGivens)); } catch { /* Optional storage. */ }
     save(); status('Build option updated. This applies to the next puzzle you build.'); render();
   };
   get('#custom-build').onclick = () => {

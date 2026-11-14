@@ -36,6 +36,12 @@ test('Build preserves the layout, displays clues and reveals a verified solution
   await expect(page.locator('#custom-board .digit')).toHaveCount(81);
   await page.locator('#custom-reveal').click();
   await expect(page.locator('#custom-board .digit')).toHaveCount(clues);
+  await page.locator('#custom-no-givens').check();
+  await page.locator('#custom-build').click();
+  await expect(page.locator('#custom-status')).toContainText('more than one solution without given cells');
+  await expect(page.locator('#custom-board .digit')).toHaveCount(clues);
+  await expect(page.locator('#custom-board polyline')).toHaveAttribute('points', path!);
+  await expect(page.locator('#custom-rating')).toBeVisible();
   await page.getByRole('button', { name: 'Slow Thermo', exact: true }).click();
   await expect(page.locator('#custom-rating')).toBeHidden();
   await expect(page.locator('#custom-walk-panel')).toBeHidden();
@@ -55,6 +61,25 @@ test('custom logical-only preference persists independently of Generate', async 
   await option.check();
   await page.reload();
   await expect(option).toBeChecked();
+});
+
+test('No given cells defaults off, persists independently and explains Missing Thermometer', async ({ page }) => {
+  await page.goto('/?page=custom-build');
+  const option = page.locator('#custom-no-givens');
+  await expect(option).not.toBeChecked();
+  await option.check();
+  await page.reload();
+  await expect(option).toBeChecked();
+  await expect(page.locator('#no-givens')).not.toBeChecked();
+  await page.getByRole('button', { name: 'Missing Thermometer', exact: true }).click();
+  await page.locator('#custom-board [data-cell="0"]').click();
+  await page.locator('#custom-board [data-cell="1"]').click();
+  await page.locator('#custom-finish').click();
+  await page.locator('#custom-build').click();
+  await expect(page.locator('#custom-status')).toContainText('Missing Thermometer needs given cells');
+  await option.uncheck();
+  await page.reload();
+  await expect(option).not.toBeChecked();
 });
 
 test('custom image export copies a PNG and downloads when clipboard access fails', async ({ page }) => {

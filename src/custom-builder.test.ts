@@ -42,3 +42,38 @@ it('reports impossible layouts, invalid Slow Thermos and exhausted budgets', () 
   expect(() => buildCustom(p, () => {}, Math.random, 0)).toThrow('time limit');
   expect(() => buildCustom(blank())).toThrow('at least one');
 });
+
+it('builds a certified clue-free puzzle from fixed thermometer constraints', () => {
+  const p = blank(); p.noGivens = true;
+  const digits = Array.from({ length: 81 }, (_, c) => (Math.floor(c / 9) * 3 + Math.floor(Math.floor(c / 9) / 3) + c % 9) % 9 + 1);
+  // Ascending contiguous runs across rows and columns of a known completion.
+  for (let unit = 0; unit < 18; unit++) {
+    const cells = Array.from({ length: 9 }, (_, i) => unit < 9 ? unit * 9 + i : i * 9 + unit - 9);
+    let path = [cells[0]];
+    for (const c of cells.slice(1)) {
+      if (digits[c] < digits[path.at(-1)!]) { if (path.length > 1) p.thermos.push(path); path = []; }
+      path.push(c);
+    }
+    if (path.length > 1) p.thermos.push(path);
+  }
+  const result = buildCustom(p, () => {}, seeded(43));
+  expect(result.puzzle.noGivens).toBe(true);
+  expect(result.puzzle.givens).toEqual(Array(81).fill(0));
+  expect(result.puzzle.values).toEqual(Array(81).fill(0));
+  expect(result.puzzle.thermos).toEqual(p.thermos);
+  expect(result.solution).toEqual(digits);
+  expect(result.analysis.guesses).toBe(0);
+  expect(result.analysis.frames[0].values).toEqual(Array(81).fill(0));
+  const verified = solve(result.puzzle, 15000);
+  expect(verified.exhausted).toBe(true);
+  expect(verified.solutions).toEqual([digits]);
+});
+
+it('rejects nonunique and Missing Thermometer clue-free layouts without changing the input', () => {
+  const p = blank(); p.thermos = [[0, 1]]; p.noGivens = true;
+  const before = structuredClone(p);
+  expect(() => buildCustom(p, () => {}, seeded(43))).toThrow('more than one solution without given cells');
+  expect(p).toEqual(before);
+  p.variant = 'missing';
+  expect(() => buildCustom(p)).toThrow('Missing Thermometer needs given cells');
+});
