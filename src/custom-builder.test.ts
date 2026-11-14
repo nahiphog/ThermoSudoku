@@ -15,6 +15,10 @@ it.each(['thermo', 'slow', 'missing'] as const)('builds a unique %s puzzle witho
   expect(result.puzzle.variant).toBe(variant);
   expect(result.puzzle.givens.filter(Boolean).length).toBeLessThan(81);
   expect(result.puzzle.values).toEqual(result.puzzle.givens);
+  expect(result.analysis.frames[0].values).toEqual(result.puzzle.givens);
+  expect(result.analysis.frames.at(-1)!.values).toEqual(result.solution);
+  expect(result.analysis.score).toBeGreaterThan(0);
+  expect(Object.keys(result.analysis.techniques).length).toBeGreaterThan(0);
   expect(validCompletion(result.solution, input.thermos, variant)).toBe(true);
   const verified = solve(result.puzzle, 15000);
   expect(verified.exhausted).toBe(true);

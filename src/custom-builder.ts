@@ -2,8 +2,9 @@ import { blank, validatePuzzle, type Puzzle } from './puzzle';
 import { compileConstraints, createUniquenessChecker, validCompletion } from './fast-solver';
 import { fillCells } from './generator';
 import { emptyGrid } from './vendor/sudokui/board';
+import { analyze, type Analysis } from './walkthrough';
 
-export interface CustomBuildResult { puzzle: Puzzle; solution: number[] }
+export interface CustomBuildResult { puzzle: Puzzle; solution: number[]; analysis: Analysis }
 
 /** Keep the supplied geometry, then remove clues only when uniqueness is proved. */
 export function buildCustom(input: Puzzle, progress: (text: string) => void = () => {}, random = Math.random, budgetMs = 30_000): CustomBuildResult {
@@ -45,5 +46,8 @@ export function buildCustom(input: Puzzle, progress: (text: string) => void = ()
   if (!verified.exhausted) throw timeout();
   if (!verified.unique) throw new Error('Could not verify a unique puzzle. Try Build again.');
   puzzle.values = [...puzzle.givens];
-  return { puzzle: validatePuzzle(puzzle), solution };
+  progress('Calculating difficulty and recording the solution walkthrough…');
+  const analysis = analyze(puzzle, Math.max(0, deadline - performance.now()));
+  if (analysis.frames.at(-1)!.values.some((value, cell) => value !== solution[cell])) throw new Error('Walkthrough did not match the verified solution.');
+  return { puzzle: validatePuzzle(puzzle), solution, analysis };
 }

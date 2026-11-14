@@ -123,6 +123,11 @@ uniqueness; some may remain on thermometers when necessary. **Cancel build** kee
 the previous puzzle. Impossible layouts and time limits are reported without
 changing your paths. **Reveal solution** shows the verified completion; hiding it
 restores the clues. Built puzzles save locally and can be copied as puzzle strings.
+Build also calculates the same difficulty score, level, and hardest technique as
+Generate and opens a complete solution walkthrough in the grid. Step controls,
+candidate highlights, bulb deductions, and linked technique tallies replay the
+solve. Return to puzzle restores the original clues. Editing the layout clears
+its analysis; ratings and walkthroughs belong to the current build session.
 
 ## Simulation page
 

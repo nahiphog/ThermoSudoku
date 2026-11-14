@@ -1,5 +1,7 @@
 import { adjacent, blank, validatePuzzle, type Variant } from './puzzle';
-import { thermometerMarkup } from './grid-markup';
+import { thermometerMarkup, bulbHighlight, unitArrows } from './grid-markup';
+import { renderTechniqueTallies } from './technique-tallies';
+import type { Analysis } from './walkthrough';
 import { encodePuzzle } from './puzzle-string';
 import { cellContents } from './cell-contents';
 import type { CustomBuildResult } from './custom-builder';
@@ -23,7 +25,18 @@ export function mountCustomBuildPage() {
       <p id="custom-status" role="status" aria-live="polite"></p>
     </section>
     <div class="workspace"><section class="board-panel" aria-label="Custom puzzle workspace">
+      <dl id="custom-rating" class="stats" hidden aria-label="Puzzle difficulty"><div><dt>Difficulty rating</dt><dd id="custom-score"></dd></div><div><dt>Difficulty level</dt><dd id="custom-level"></dd></div><div><dt>Hardest technique used</dt><dd id="custom-hardest"></dd></div></dl>
       <div id="custom-board" class="board" role="group" aria-label="Custom Sudoku grid"><svg class="thermo-overlay" viewBox="0 0 900 900" aria-hidden="true"></svg><div class="cells"></div></div>
+      <section id="custom-walk-panel" hidden aria-label="Solution walkthrough">
+        <div class="walk-heading"><h2>Solution walkthrough</h2><button id="custom-walk-close" class="text-button">Return to puzzle</button></div>
+        <p id="custom-step-count" class="muted"></p><h3 id="custom-step-title"></h3><p id="custom-step-description" class="muted" aria-live="polite"></p>
+        <input id="custom-step-range" type="range" min="0" value="0" aria-label="Custom solution step">
+        <div class="button-pair"><button id="custom-step-prev" class="outline">Previous step</button><button id="custom-step-next" class="primary">Next step</button></div>
+        <div class="button-pair"><button id="custom-step-first" class="text-button">Starting puzzle</button><button id="custom-step-last" class="text-button">Completed grid</button></div>
+        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Blue: pattern; amber: support; purple: fins; green: restored candidates. Teal: relevant cells. Green bulb: found end; dashed red: ruled-out end. Trials and restored positions are included.</p>
+        <div id="custom-tallies"></div>
+      </section>
+      <button id="custom-walk-open" class="outline full" hidden>View solution walkthrough</button>
       <p id="custom-count" class="muted"></p>
       <button id="custom-reveal" class="outline full" hidden>Reveal solution</button>
       <div class="custom-toolbar"><button id="custom-undo" class="outline">Undo change</button><button id="custom-clear" class="outline">Clear thermos</button></div>
@@ -35,11 +48,12 @@ export function mountCustomBuildPage() {
   const get = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(id)!;
   let puzzle = blank(), draft: number[] = [], selected = 0;
   let worker: Worker | null = null, solution: number[] | null = null, revealed = false;
+  let analysis: Analysis | null = null, slide: number | null = null;
   const history: typeof puzzle[] = [];
   try { const saved = localStorage.getItem('thermo-custom-build-v1'); if (saved) puzzle = validatePuzzle(JSON.parse(saved)); } catch { /* Optional storage. */ }
   const status = (text: string) => { get('#custom-status').textContent = text; };
   const save = () => { try { localStorage.setItem('thermo-custom-build-v1', JSON.stringify(puzzle)); } catch { /* Optional storage. */ } };
-  const remember = () => { history.push(structuredClone(puzzle)); if (history.length > 100) history.shift(); get('#custom-export-label').hidden = true; solution = null; revealed = false; puzzle.givens = Array(81).fill(0); puzzle.values = Array(81).fill(0); };
+  const remember = () => { history.push(structuredClone(puzzle)); if (history.length > 100) history.shift(); get('#custom-export-label').hidden = true; solution = null; revealed = false; analysis = null; slide = null; puzzle.givens = Array(81).fill(0); puzzle.values = Array(81).fill(0); };
   const cells = Array.from({ length: 81 }, (_, i) => {
     const cell = document.createElement('button'); cell.className = 'cell'; cell.dataset.cell = String(i);
     cell.classList.toggle('box-right', i % 9 === 2 || i % 9 === 5);
@@ -48,6 +62,7 @@ export function mountCustomBuildPage() {
     cell.onclick = () => {
       if (worker) return;
       selected = i;
+      if (slide !== null) { render(); return; }
       if (!draft.length && puzzle.thermos.length >= 100) { status('Remove a thermometer before adding another (maximum 100).'); return; }
       if (draft.includes(i)) { status('Each cell can appear only once in a path. Use Undo last cell to shorten it.'); return; }
       if (draft.length && !adjacent(draft.at(-1)!, i)) { status('Choose a cell next to the current tip, including diagonally.'); return; }
@@ -62,18 +77,26 @@ export function mountCustomBuildPage() {
     get('#custom-board .cells').append(cell); return cell;
   });
   function render() {
-    const values = revealed && solution ? solution : puzzle.givens;
+    const frame = slide !== null ? analysis?.frames[slide] : null;
+    const values = frame?.values ?? (revealed && solution ? solution : puzzle.givens);
+    const related = new Set([...(frame?.relatedCells ?? []), ...(frame?.strictInequalities?.flat() ?? [])]);
     root.querySelectorAll<HTMLButtonElement>('[data-variant]').forEach(button => {
       const active = button.dataset.variant === puzzle.variant;
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); button.disabled = !!worker;
     });
     get('#custom-rules').textContent = puzzle.variant === 'slow' ? 'Slow Thermo: digits never decrease, with at least one equal consecutive pair in the solution. Paths can contain 2–81 cells.' : puzzle.variant === 'missing' ? 'Missing Thermometer: bulbs are hidden; either end can be the bulb. Paths can contain 2–9 cells.' : 'Thermo: digits strictly increase from the first cell (the bulb). Paths can contain 2–9 cells.';
-    get('#custom-board svg').innerHTML = thermometerMarkup(puzzle, values) + (draft.length ? `<g class="custom-draft">${thermometerMarkup({ ...puzzle, thermos: [draft] }, puzzle.givens)}</g>` : '');
+    get('#custom-board svg').innerHTML = thermometerMarkup(puzzle, values, frame?.bulbEnds) + (draft.length ? `<g class="custom-draft">${thermometerMarkup({ ...puzzle, thermos: [draft] }, puzzle.givens)}</g>` : '');
+    get('#custom-board .unit-arrows')?.remove();
+    get('#custom-board').insertAdjacentHTML('beforeend', unitArrows(frame));
     cells.forEach((cell, i) => {
       cell.tabIndex = selected === i ? 0 : -1;
       cell.classList.toggle('selected', selected === i);
       cell.classList.toggle('custom-draft-cell', draft.includes(i));
-      cell.innerHTML = cellContents(values[i], i);
+      cell.innerHTML = cellContents(values[i], i, frame);
+      for (const name of ['bulb-found', 'bulb-rejected', 'bulb-path']) cell.classList.toggle(name, bulbHighlight(frame, i) === name);
+      cell.classList.toggle('step-reason', related.has(i));
+      cell.classList.toggle('step-placement', !!frame?.placements.some(p => p.cell === i));
+      cell.classList.toggle('step-elimination', !!frame?.eliminations.some(p => p.cell === i));
       cell.classList.toggle('given', !!puzzle.givens[i]);
       cell.setAttribute('aria-label', `Row ${Math.floor(i / 9) + 1}, column ${i % 9 + 1}, ${values[i] || 'empty'}`);
       cell.disabled = !!worker;
@@ -89,6 +112,25 @@ export function mountCustomBuildPage() {
     get<HTMLButtonElement>('#custom-reveal').disabled = !!worker || !!draft.length;
     get('#custom-reveal').textContent = revealed ? 'Hide solution' : 'Reveal solution';
     get('#custom-reveal').setAttribute('aria-pressed', String(revealed));
+    get('#custom-rating').hidden = !analysis;
+    get('#custom-walk-panel').hidden = !frame;
+    get('#custom-walk-open').hidden = !analysis || slide !== null;
+    get<HTMLButtonElement>('#custom-walk-open').disabled = !!worker || !!draft.length;
+    if (analysis) {
+      get('#custom-score').textContent = String(analysis.score);
+      get('#custom-level').textContent = analysis.level;
+      get('#custom-hardest').textContent = analysis.hardest;
+      if (frame && slide !== null) {
+        get('#custom-step-count').textContent = `Step ${slide + 1} of ${analysis.frames.length}`;
+        get('#custom-step-title').textContent = frame.title;
+        get('#custom-step-description').textContent = frame.description;
+        const range = get<HTMLInputElement>('#custom-step-range'); range.max = String(analysis.frames.length - 1); range.value = String(slide);
+        range.setAttribute('aria-valuetext', `Step ${slide + 1}: ${frame.title}`);
+        get<HTMLButtonElement>('#custom-step-prev').disabled = slide === 0;
+        get<HTMLButtonElement>('#custom-step-next').disabled = slide === analysis.frames.length - 1;
+        renderTechniqueTallies(get('#custom-tallies'), analysis, index => { slide = index; render(); get('#custom-step-title').tabIndex = -1; get('#custom-step-title').focus({ preventScroll: true }); get('#custom-board').scrollIntoView({ block: 'start' }); });
+      }
+    }
     get('#custom-count').textContent = `${puzzle.thermos.length} thermometers placed · Drafts save automatically after finishing a path.`;
     const paths = get('#custom-paths'); paths.replaceChildren();
     puzzle.thermos.forEach((path, index) => {
@@ -108,9 +150,16 @@ export function mountCustomBuildPage() {
   get('#custom-finish').onclick = () => { if (draft.length < 2) return; remember(); puzzle.thermos.push([...draft]); draft = []; save(); status('Thermometer placed. Choose a starting cell for the next one.'); render(); };
   get('#custom-back').onclick = () => { draft.pop(); status('Last cell removed.'); render(); };
   get('#custom-cancel').onclick = () => { draft = []; status('Path canceled.'); render(); };
-  get('#custom-undo').onclick = () => { const previous = history.pop(); if (previous) { puzzle = previous; solution = null; revealed = false; save(); get('#custom-export-label').hidden = true; status('Change undone.'); render(); } };
+  get('#custom-undo').onclick = () => { const previous = history.pop(); if (previous) { puzzle = previous; solution = null; revealed = false; analysis = null; slide = null; save(); get('#custom-export-label').hidden = true; status('Change undone.'); render(); } };
   get('#custom-clear').onclick = () => { remember(); puzzle.thermos = []; save(); status('Thermometers cleared. Undo change restores them.'); render(); };
-  get('#custom-reveal').onclick = () => { revealed = !revealed; render(); };
+  get('#custom-reveal').onclick = () => { slide = null; revealed = !revealed; render(); };
+  get('#custom-walk-open').onclick = () => { slide = 0; revealed = false; render(); };
+  get('#custom-walk-close').onclick = () => { slide = null; revealed = false; render(); };
+  get('#custom-step-prev').onclick = () => { if (slide !== null) slide = Math.max(0, slide - 1); render(); };
+  get('#custom-step-next').onclick = () => { if (slide !== null && analysis) slide = Math.min(analysis.frames.length - 1, slide + 1); render(); };
+  get('#custom-step-first').onclick = () => { slide = 0; render(); };
+  get('#custom-step-last').onclick = () => { if (analysis) slide = analysis.frames.length - 1; render(); };
+  get('#custom-step-range').oninput = event => { slide = Number((event.target as HTMLInputElement).value); render(); };
   get('#custom-build').onclick = () => {
     if (worker) { worker.terminate(); worker = null; status('Build canceled. Your puzzle is unchanged.'); render(); return; }
     if (draft.length || !puzzle.thermos.length) return;
@@ -123,7 +172,7 @@ export function mountCustomBuildPage() {
       active.terminate(); worker = null;
       if (event.data.error) { status(event.data.error); render(); return; }
       const result = event.data.result as CustomBuildResult;
-      remember(); puzzle = result.puzzle; solution = result.solution; save();
+      remember(); puzzle = result.puzzle; solution = result.solution; analysis = result.analysis; slide = 0; save();
       status(`Puzzle built with ${puzzle.givens.filter(Boolean).length} clues and exactly one solution. Your thermometer layout is unchanged.`); render();
     };
     active.postMessage({ type: 'custom-build', puzzle });
