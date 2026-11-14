@@ -21,7 +21,7 @@ export function techniqueCandidates(step: Step): CandidateHighlight[] {
 export function techniqueCells(step: Step): number[] {
   return [...new Set([
     ...[step.placements, step.eliminations, step.primary, step.secondary, step.fins, step.copyOnly].flatMap(list => (list ?? []).map(p => p.cell)),
-    ...(step.units ?? []).flatMap(band => UNITS[band.unit]),
+    ...(step.units ?? []).filter(band => band.unit >= 18).flatMap(band => UNITS[band.unit]),
     ...(step.chainCells ?? []),
     ...(step.links ?? []).flatMap(link => [...link.from, ...link.to].map(p => p.cell)),
     ...(step.sets ?? []).flatMap(set => set.cells),

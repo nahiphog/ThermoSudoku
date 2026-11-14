@@ -9,7 +9,7 @@ import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount,
 import { LEVELS, LEVEL_MAX_SCORE, type Level } from './vendor/sudokui/ratings';
 import type { CellDigit } from './vendor/sudokui/steps';
 
-export interface Frame { candidateHighlights?: CandidateHighlight[]; relatedCells?: number[]; title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbFinding?: { path: number[]; bulb: number; rejected: number }; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
+export interface Frame { relatedUnits?: number[]; candidateHighlights?: CandidateHighlight[]; relatedCells?: number[]; title: string; description: string; values: number[]; candidates: number[]; placements: CellDigit[]; eliminations: CellDigit[]; bulbFinding?: { path: number[]; bulb: number; rejected: number }; bulbEnds?: (number | null)[]; strictInequalities?: [number, number][]; kind: 'bulb' | 'start' | 'logic' | 'thermo' | 'guess' | 'contradiction' | 'backtrack' | 'finish' }
 export interface Analysis { frames: Frame[]; score: number; level: Level; hardest: string; guesses: number; backtracks: number; techniques: Record<string, number> }
 /** A replay of the actual solving process, including failed trials and rollback.
  * This is an estimate: upstream technique weights + 5 per thermo reduction +
@@ -24,8 +24,8 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
   const add = (g: Grid, kind: Frame['kind'], title: string, description: string, placements: CellDigit[] = [], eliminations: CellDigit[] = [], strictInequalities?: [number, number][], relatedCells?: number[], candidateHighlights?: CandidateHighlight[]) => {
     if (result.frames.length >= 20000 || performance.now() >= deadline) throw new Error('Analysis budget reached before a complete walkthrough was recorded. Try generating again.');
     const previous = result.frames.at(-1);
-    const affected = relatedCells ?? (kind === 'start' ? [...p.givens.flatMap((d, c) => d ? [c] : []), ...p.thermos.flat()]
-      : kind === 'finish' ? Array.from({ length: 81 }, (_, c) => c)
+    const affected = relatedCells ?? (kind === 'start' ? []
+      : kind === 'finish' ? []
       : kind === 'contradiction' ? contradictionCells(g, p)
       : kind === 'backtrack' ? Array.from({ length: 81 }, (_, c) => c).filter(c => previous && (previous.values[c] !== g.values[c] || previous.candidates[c] !== g.cands[c]))
       : [...placements, ...eliminations].map(p => p.cell));
@@ -67,6 +67,7 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
       step: step => {
         const info = TECHS[step.tech]; credit(info.name, info.score, info.level);
         add(g, 'logic', info.name, step.description, step.placements, step.eliminations, undefined, techniqueCells(step), techniqueCandidates(step));
+        result.frames.at(-1)!.relatedUnits = [...new Set((step.units ?? []).map(band => band.unit).filter(unit => unit < 18))];
       },
     }, bulbs.get(g)!);
     if (state === 'solved') return g;

@@ -1,10 +1,11 @@
 import { cellContents } from './cell-contents';
-import { thermometerMarkup, bulbHighlight } from './grid-markup';
+import { thermometerMarkup, bulbHighlight, unitArrows } from './grid-markup';
 import { generationControls } from './generation-controls';
 import { mountSimulationPage } from './simulation-page';
 import { mountNavigation } from './navigation';
 import { mountTechniquesPage } from './techniques-page';
 import './style.css';
+import './unit-arrows.css';
 import { renderTechniqueTallies } from './technique-tallies';
 import { mountImportPage } from './import-page';
 import { encodePuzzle, decodePuzzle } from './puzzle-string';
@@ -50,7 +51,7 @@ $('#app').innerHTML = `
         <input id="slide-range" type="range" min="0" value="0" aria-label="Solution step">
         <div class="button-pair"><button id="slide-prev" class="outline">Previous step</button><button id="slide-next" class="primary">Next step</button></div>
         <div class="button-pair"><button id="slide-first" class="text-button">Starting puzzle</button><button id="slide-last" class="text-button">Completed grid</button></div>
-        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Candidate highlights: blue pattern, amber support, purple fins, green restored; red crossed candidates are eliminated. Teal: relevant cells. Green bulb: found end; dashed red: ruled-out end. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
+        <p class="muted">Purple: a placed digit. Red crossed marks: eliminated candidates. Candidate highlights: blue pattern, amber support, purple fins, green restored; red crossed candidates are eliminated. Outside arrows: involved rows and columns. Teal: specific cells and boxes. Green bulb: found end; dashed red: ruled-out end. Trials and restored positions are explicitly labeled.</p></div><div id="technique-tallies"></div>
       </section>
       <div class="board-footer"><span id="filled"></span><span>Manual entry disabled</span></div>
       <div id="grid-actions" class="button-pair"><button id="copy-image" class="outline">Copy grid as an image</button><button id="reveal" class="primary">Reveal solution</button></div>
@@ -116,6 +117,8 @@ function render() {
     b.classList.toggle('step-elimination', !!frame?.eliminations.some(p => p.cell === i));
     b.innerHTML = cellContents(values[i], i, frame);
   });
+  $('#board .unit-arrows')?.remove();
+  $('#board').insertAdjacentHTML('beforeend', unitArrows(frame));
   $('#thermos').innerHTML = thermometerMarkup(puzzle, values, frame?.bulbEnds);
   $('#filled').textContent = `${values.filter(Boolean).length} / 81 filled · ${puzzle.thermos.length} thermometers`;
   $('#status').hidden = !busy && !progress && !status && !detail;

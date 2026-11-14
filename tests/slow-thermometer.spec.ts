@@ -16,7 +16,7 @@ test('the supplied Slow Thermo shows peer-chain eliminations under the named tec
   await expect(page.locator('#import-walk-board .step-reason')).toHaveCount(4);
   for (const cell of [18, 20, 11, 12]) {
     await expect(page.locator('#import-walk-board .cell').nth(cell)).toHaveClass(/step-reason/);
-    await expect(page.locator('#import-walk-board .cell').nth(cell)).toHaveAttribute('aria-label', /strict inequality cell/);
+    await expect(page.locator('#import-walk-board .cell').nth(cell)).toHaveAttribute('aria-label', /relevant to this step/);
   }
   await expect(page.locator('#import-walk-board .cell').nth(28)).not.toHaveClass(/step-reason/);
   await page.locator('#import-walk-board').screenshot({ path: 'test-results/slow-bounds-highlight.png' });

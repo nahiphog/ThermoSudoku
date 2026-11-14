@@ -6,7 +6,7 @@ import { cellContents } from './cell-contents';
 export function board(p: Puzzle, values: number[], differences: number[] = [], frame?: Frame): string {
   const reasonCells = new Set([...(frame?.relatedCells ?? []), ...(frame?.strictInequalities?.flat() ?? [])]);
   const paths = thermometerMarkup(p, values, frame?.bulbEnds);
-  return `<svg class="thermo-overlay" viewBox="0 0 900 900" aria-hidden="true">${paths}</svg><div class="cells">${values.map((d, c) => {
+  return `${unitArrows(frame)}<svg class="thermo-overlay" viewBox="0 0 900 900" aria-hidden="true">${paths}</svg><div class="cells">${values.map((d, c) => {
     const classes = ['cell', reasonCells.has(c) ? 'step-reason' : '', bulbHighlight(frame, c), p.givens[c] ? 'given' : '', c % 9 === 2 || c % 9 === 5 ? 'box-right' : '', Math.floor(c / 9) === 2 || Math.floor(c / 9) === 5 ? 'box-bottom' : '', differences.includes(c) ? 'different-cell' : '', frame?.placements.some(e => e.cell === c) ? 'step-placement' : '', frame?.eliminations.some(e => e.cell === c) ? 'step-elimination' : ''];
     return `<div class="${classes.join(' ')}" role="img" aria-label="Row ${Math.floor(c / 9) + 1}, column ${c % 9 + 1}, ${d || 'empty'}${differences.includes(c) ? ', differs between solutions' : ''}${reasonCells.has(c) ? ', relevant to this step' : ''}">${cellContents(d, c, frame)}</div>`;
   }).join('')}</div>`;
@@ -22,4 +22,14 @@ export function bulbHighlight(frame: Frame | null | undefined, cell: number): st
   const finding = frame?.bulbFinding;
   if (!finding?.path.includes(cell)) return '';
   return cell === finding.bulb ? 'bulb-found' : cell === finding.rejected ? 'bulb-rejected' : 'bulb-path';
+}
+
+/** House context lives outside the cells; candidate evidence stays inside. */
+export function unitArrows(frame?: Frame | null): string {
+  const units = [...new Set(frame?.relatedUnits ?? [])].filter(u => u >= 0 && u < 18);
+  if (!frame) return '';
+  return '<div class="unit-arrows">' + units.map(u => {
+    const row = u < 9, n = row ? u : u - 9;
+    return '<span class="unit-arrow ' + (row ? 'row-arrow' : 'column-arrow') + '" role="img" aria-label="' + (row ? 'Row ' : 'Column ') + (n + 1) + ' involved" style="' + (row ? 'top' : 'left') + ':' + ((n + .5) * 100 / 9) + '%">' + (row ? '→' : '↓') + '</span>';
+  }).join('') + '</div>';
 }

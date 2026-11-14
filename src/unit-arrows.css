@@ -1,0 +1,5 @@
+.board:has(.unit-arrows){width:calc(100% - 22px);margin:22px 0 0 22px}
+.unit-arrows{position:absolute;inset:0;pointer-events:none;color:#087f76;z-index:3}
+.unit-arrow{position:absolute;display:flex;align-items:center;justify-content:center;font:700 20px/1 sans-serif;width:20px;height:20px}
+.row-arrow{left:-23px;transform:translateY(-50%)}
+.column-arrow{top:-23px;transform:translateX(-50%)}
