@@ -1,3 +1,4 @@
+import { addSimulationExports } from './simulation-exports';
 import { generationControls } from './generation-controls';
 import { blank, generationError, type Puzzle } from './puzzle';
 import { board } from './grid-markup';
@@ -61,6 +62,7 @@ export function mountSimulationPage() {
     const rows = await store!.page(pageIndex * pageSize, pageSize);
     if (version !== renderVersion) return;
     $('results').innerHTML = rows.map(row => `<article class="card"><h3>Trial ${row.trial.toLocaleString('en-US')}</h3><p>Difficulty rating: ${row.score}</p><div class="board" aria-label="Trial ${row.trial} puzzle">${board(row.puzzle, row.puzzle.givens)}</div></article>`).join('');
+    $('results').querySelectorAll<HTMLElement>('article').forEach((card, i) => addSimulationExports(card, rows[i].puzzle, rows[i].trial));
     stats();
   }
   function stop(message: string) {
