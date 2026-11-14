@@ -3,6 +3,7 @@ import { thermometerMarkup, bulbHighlight, unitArrows } from './grid-markup';
 import { generationControls } from './generation-controls';
 import { mountSimulationPage } from './simulation-page';
 import { mountNavigation } from './navigation';
+import { mountCustomBuildPage } from './custom-build-page';
 import { mountTechniquesPage } from './techniques-page';
 import './style.css';
 import './unit-arrows.css';
@@ -290,4 +291,5 @@ mountImportPage();
 
 mountTechniquesPage();
 mountSimulationPage();
+mountCustomBuildPage();
 mountNavigation();

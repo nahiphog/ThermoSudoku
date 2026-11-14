@@ -106,6 +106,18 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   uses across the entire solve, including failed trials; rollbacks are also reported.
   Imported puzzle walkthroughs show the same tallies.
 
+## Custom Build page
+
+Open **Custom Build** from the header dropdown (`?page=custom-build`). Choose
+Thermo, Slow Thermo, or Missing Thermometer, then click or tap neighboring cells
+to draw each path. The first cell is the bulb, except in Missing Thermometer,
+where bulbs remain hidden. Diagonal steps and overlapping paths are supported.
+Choose **Finish thermo** to place a path before drawing another. Undo the last
+cell, cancel a draft, delete individual thermometers, or undo completed changes.
+Finished layouts save separately in local storage. **Copy puzzle string** exports
+the layout for the Import grid page. Strict paths have 2–9 cells; Slow Thermo
+allows 2–81. Changing variants preserves paths and rejects incompatible lengths.
+
 ## Simulation page
 
 Open **Simulation** from the header dropdown (`?page=simulation`). It shares
