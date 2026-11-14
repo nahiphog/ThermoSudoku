@@ -117,6 +117,12 @@ cell, cancel a draft, delete individual thermometers, or undo completed changes.
 Finished layouts save separately in local storage. **Copy puzzle string** exports
 the layout for the Import grid page. Strict paths have 2–9 cells; Slow Thermo
 allows 2–81. Changing variants preserves paths and rejects incompatible lengths.
+Click **Build** after finishing your paths to generate a uniquely solvable puzzle
+with that exact layout and variant. Clues are removed individually while checking
+uniqueness; some may remain on thermometers when necessary. **Cancel build** keeps
+the previous puzzle. Impossible layouts and time limits are reported without
+changing your paths. **Reveal solution** shows the verified completion; hiding it
+restores the clues. Built puzzles save locally and can be copied as puzzle strings.
 
 ## Simulation page
 

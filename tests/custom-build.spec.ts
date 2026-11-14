@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test';
 
+test('Build preserves the layout, displays clues and reveals a verified solution', async ({ page }) => {
+  await page.goto('/?page=custom-build');
+  await expect(page.locator('#custom-build')).toBeDisabled();
+  await page.locator('#custom-board [data-cell="0"]').click();
+  await page.locator('#custom-board [data-cell="1"]').click();
+  await expect(page.locator('#custom-build')).toBeDisabled();
+  await page.locator('#custom-finish').click();
+  const path = await page.locator('#custom-board polyline').getAttribute('points');
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await expect(page.locator('#custom-status')).toContainText('exactly one solution', { timeout: 35000 });
+  await expect(page.locator('#custom-board polyline')).toHaveAttribute('points', path!);
+  const clues = await page.locator('#custom-board .digit').count();
+  expect(clues).toBeGreaterThan(0); expect(clues).toBeLessThan(81);
+  await page.locator('#custom-reveal').click();
+  await expect(page.locator('#custom-board .digit')).toHaveCount(81);
+  await page.locator('#custom-reveal').click();
+  await expect(page.locator('#custom-board .digit')).toHaveCount(clues);
+  await page.reload();
+  await expect(page.locator('#custom-board .digit')).toHaveCount(clues);
+});
+
 test('custom layouts support all variants, validation, persistence and undo', async ({ page }) => {
   await page.goto('/?page=custom-build');
   await expect(page.getByRole('heading', { name: 'Custom Build', exact: true })).toBeVisible();
