@@ -6,7 +6,7 @@ import type { Step } from './techniques';
 import { findFullHouse, findHiddenSingle, findNakedSingle } from './vendor/sudokui/techniques/singles';
 import { findLockedCandidates1, findLockedCandidates2 } from './vendor/sudokui/techniques/intersections';
 import { findHiddenSubset, findNakedSubset } from './vendor/sudokui/techniques/subsets';
-import { findBasicFish, findFinnedFish } from './vendor/sudokui/techniques/fish';
+import { findBasicFish } from './vendor/sudokui/techniques/fish';
 import { findWWing, findXYWing, findXYZWing } from './vendor/sudokui/techniques/wings';
 import { findEmptyRectangle, findTurbotFamily } from './vendor/sudokui/techniques/singleDigit';
 import { hasRepeatedStep, validatePuzzle, type Puzzle, type Variant } from './puzzle';
@@ -20,7 +20,6 @@ const finders: ((g: Grid) => Step | null)[] = [
   findXYWing, findXYZWing, findWWing,
   (g: Grid) => findTurbotFamily(g, 'SKYSCRAPER'), (g: Grid) => findTurbotFamily(g, 'TWO_STRING_KITE'), findEmptyRectangle,
   findPhistomefelRing,
-  ...[2, 3, 4].flatMap(n => [(g: Grid) => findFinnedFish(g, n, false), (g: Grid) => findFinnedFish(g, n, true)])
 ];
 export function nextLogicalStep(g: Grid): Step | null {
   for (const finder of finders) { const step = finder(g); if (step) return step; }
