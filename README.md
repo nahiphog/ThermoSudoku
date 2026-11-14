@@ -132,6 +132,11 @@ its analysis; ratings and walkthroughs belong to the current build session.
 904×904 PNG, with a download fallback if clipboard access is unavailable. Like
 Generate, image copying is disabled during walkthroughs; finish or cancel any
 unfinished thermometer path before copying.
+**Logical techniques only (no Brute force)** is enabled by default and remembered
+separately from Generate. When enabled, Build retains any clue whose removal
+would prevent a complete logical solve, then certifies the walkthrough without
+Brute force. Your paths stay fixed. Uncheck it to allow puzzles requiring guesses.
+Changing the option applies to the next build, without changing the current puzzle.
 
 ## Simulation page
 

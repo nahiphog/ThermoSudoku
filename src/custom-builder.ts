@@ -3,6 +3,7 @@ import { compileConstraints, createUniquenessChecker, validCompletion } from './
 import { fillCells } from './generator';
 import { emptyGrid } from './vendor/sudokui/board';
 import { analyze, type Analysis } from './walkthrough';
+import { checkLogical } from './logical-runner';
 
 export interface CustomBuildResult { puzzle: Puzzle; solution: number[]; analysis: Analysis }
 
@@ -13,7 +14,7 @@ export function buildCustom(input: Puzzle, progress: (text: string) => void = ()
   const puzzle = blank(layout.variant);
   puzzle.thermos = layout.thermos.map(path => [...path]);
   puzzle.symmetricThermos = false; puzzle.symmetricGivens = false;
-  puzzle.noOverlap = false; puzzle.noThermoGivens = false; puzzle.logicalOnly = false;
+  puzzle.noOverlap = false; puzzle.noThermoGivens = false; puzzle.logicalOnly = layout.logicalOnly ?? true;
   const deadline = performance.now() + budgetMs;
   const timeout = () => new Error('Build time limit reached. Try Build again or adjust your thermometers. Your layout is unchanged.');
   const constraints = compileConstraints(puzzle.thermos, puzzle.variant);
@@ -41,13 +42,19 @@ export function buildCustom(input: Puzzle, progress: (text: string) => void = ()
     const result = checker.check(puzzle.givens, deadline);
     if (!result.exhausted) throw timeout();
     if (!result.unique) puzzle.givens[cell] = old;
+    else if (puzzle.logicalOnly) {
+      // Keep a clue if removing it would require guessing. The geometry stays fixed.
+      puzzle.values = [...puzzle.givens];
+      if (!checkLogical(puzzle, deadline)) puzzle.givens[cell] = old;
+    }
   }
   const verified = checker.check(puzzle.givens, deadline, false);
   if (!verified.exhausted) throw timeout();
   if (!verified.unique) throw new Error('Could not verify a unique puzzle. Try Build again.');
   puzzle.values = [...puzzle.givens];
   progress('Calculating difficulty and recording the solution walkthrough…');
-  const analysis = analyze(puzzle, Math.max(0, deadline - performance.now()));
+  const analysis = analyze(puzzle, Math.max(0, deadline - performance.now()), !puzzle.logicalOnly);
+  if (puzzle.logicalOnly && analysis.guesses) throw new Error('Could not certify a solution without Brute force. Try Build again.');
   if (analysis.frames.at(-1)!.values.some((value, cell) => value !== solution[cell])) throw new Error('Walkthrough did not match the verified solution.');
   return { puzzle: validatePuzzle(puzzle), solution, analysis };
 }

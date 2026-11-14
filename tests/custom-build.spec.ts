@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('Build preserves the layout, displays clues and reveals a verified solution', async ({ page }) => {
   await page.goto('/?page=custom-build');
+  await expect(page.locator('#custom-build-page').getByLabel('Logical techniques only (no Brute force)', { exact: true })).toBeChecked();
   await expect(page.locator('#custom-build')).toBeDisabled();
   await page.locator('#custom-board [data-cell="0"]').click();
   await page.locator('#custom-board [data-cell="1"]').click();
@@ -16,6 +17,7 @@ test('Build preserves the layout, displays clues and reveals a verified solution
   await expect(page.locator('#custom-rating')).toBeVisible();
   await expect(page.locator('#custom-score')).toHaveText(/^\d+$/);
   await expect(page.locator('#custom-walk-panel')).toBeVisible();
+  await expect(page.locator('#custom-tallies')).not.toContainText('Brute force');
   await expect(page.locator('#custom-copy-image')).toBeDisabled();
   await expect(page.locator('#custom-step-prev')).toBeDisabled();
   await page.locator('#custom-step-next').click();
@@ -40,6 +42,19 @@ test('Build preserves the layout, displays clues and reveals a verified solution
   await page.locator('#custom-undo').click();
   await page.reload();
   await expect(page.locator('#custom-board .digit')).toHaveCount(clues);
+});
+
+test('custom logical-only preference persists independently of Generate', async ({ page }) => {
+  await page.goto('/?page=custom-build');
+  const option = page.locator('#custom-logical-only');
+  await expect(option).toBeChecked();
+  await option.uncheck();
+  await page.reload();
+  await expect(option).not.toBeChecked();
+  await expect(page.locator('#logical-only')).toBeChecked();
+  await option.check();
+  await page.reload();
+  await expect(option).toBeChecked();
 });
 
 test('custom image export copies a PNG and downloads when clipboard access fails', async ({ page }) => {

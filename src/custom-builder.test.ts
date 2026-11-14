@@ -3,16 +3,24 @@ import { buildCustom } from './custom-builder';
 import { blank } from './puzzle';
 import { solve } from './solver';
 import { validCompletion } from './fast-solver';
+import { checkLogical } from './logical-runner';
 
 function seeded(seed: number) { return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; }
 
-it.each(['thermo', 'slow', 'missing'] as const)('builds a unique %s puzzle without changing supplied paths', variant => {
-  const input = blank(variant); input.thermos = [[20, 30], [30, 40]];
+it.each((['thermo', 'slow', 'missing'] as const).flatMap(variant => [true, false].map(logicalOnly => ({ variant, logicalOnly }))))('builds a unique $variant puzzle with logicalOnly=$logicalOnly without changing paths', ({ variant, logicalOnly }) => {
+  const input = blank(variant); input.thermos = [[20, 30], [30, 40]]; input.logicalOnly = logicalOnly;
   const before = structuredClone(input);
   const result = buildCustom(input, () => {}, seeded(43));
   expect(input).toEqual(before);
   expect(result.puzzle.thermos).toEqual(input.thermos);
   expect(result.puzzle.variant).toBe(variant);
+  expect(result.puzzle.logicalOnly).toBe(logicalOnly);
+  if (logicalOnly) {
+    expect(checkLogical(result.puzzle)).toEqual(result.solution);
+    expect(result.analysis.guesses).toBe(0);
+    expect(result.analysis.techniques['Brute force'] ?? 0).toBe(0);
+    expect(result.analysis.frames.some(frame => frame.kind === 'guess')).toBe(false);
+  }
   expect(result.puzzle.givens.filter(Boolean).length).toBeLessThan(81);
   expect(result.puzzle.values).toEqual(result.puzzle.givens);
   expect(result.analysis.frames[0].values).toEqual(result.puzzle.givens);
