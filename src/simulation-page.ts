@@ -36,11 +36,15 @@ export function mountSimulationPage() {
     puzzle.branching = $<HTMLInputElement>('branching').checked;
     puzzle.logicalOnly = $<HTMLInputElement>('logical-only').checked;
     puzzle.symmetricThermos = $<HTMLInputElement>('symmetric-thermos').checked;
+    const branches = $<HTMLSelectElement>('branches-per-bulb').value;
+    puzzle.branchesPerBulb = branches ? Number(branches) : undefined;
+    puzzle.thermometerCount = puzzle.branching && puzzle.branchesPerBulb !== undefined && !puzzle.thermoLengths ? puzzle.branchesPerBulb * (puzzle.symmetricThermos ? 2 : 1) : 6;
     return generationError(puzzle.variant, puzzle);
   }
   function controls() {
     for (const el of page.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.settings-card input, .settings-card select, .mode-switch button')) el.disabled = running;
     const error = readOptions(); $('generation-error').textContent = error ?? '';
+    $<HTMLSelectElement>('branches-per-bulb').disabled = running || !puzzle.branching;
     $<HTMLButtonElement>('start').disabled = !running && !!error;
     $('start').textContent = running ? 'Cancel simulation' : 'Start simulation';
     for (const variant of ['thermo', 'slow', 'missing'] as const) {

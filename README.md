@@ -112,8 +112,15 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
 Enable **Branching thermometers (shared bulb)** in Generate, Simulation, or Custom
 Build. It is off by default. Each branch obeys its variant's rule independently;
 digits on separate branches have no extra ordering relationship beyond Sudoku.
-Generate and Simulation group two or three branches at each bulb and keep their
-other cells disjoint. Exact lengths count branch paths, including the shared bulb.
+Generate and Simulation offer **Branches per bulb**: choose an exact count from
+2–8, or **Automatic (2 or 3)** to keep the previous grouping behavior. The selector
+is available when branching is enabled. Other cells stay disjoint. Exact lengths
+count branch paths, including the shared bulb. A fixed branch count requires a
+multiple of that many lengths, or twice that many with rotational symmetry.
+With a fixed count and no exact lengths, generation makes one bulb, or a rotated
+pair when symmetry is enabled. Generate remembers the selection separately from
+the current puzzle; Simulation has its own selection. JSON exports preserve the
+`branchesPerBulb` setting. Harder layouts may take longer; Cancel remains available.
 Choose at least two paths, or four with rotational symmetry; the existing paired
 length requirements still apply to rotational symmetry.
 

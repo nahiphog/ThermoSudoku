@@ -31,7 +31,13 @@ try {
 
 let branchingPreference = puzzle.branching ?? false;
 try { const saved = localStorage.getItem('thermo-generate-branching'); if (saved !== null) branchingPreference = saved === 'true'; } catch { /* Optional storage. */ }
-const generationOptions = () => ({ ...puzzle, branching: branchingPreference });
+let branchesPerBulb = puzzle.branchesPerBulb;
+try {
+  const saved = localStorage.getItem('thermo-generate-branches-per-bulb');
+  if (saved !== null) { const n = Number(saved); branchesPerBulb = Number.isInteger(n) && n >= 2 && n <= 8 ? n : undefined; }
+} catch { /* Optional storage. */ }
+const generationOptions = () => ({ ...puzzle, branching: branchingPreference, branchesPerBulb,
+  thermometerCount: branchingPreference && branchesPerBulb !== undefined && !puzzle.thermoLengths ? branchesPerBulb * (puzzle.symmetricThermos ? 2 : 1) : puzzle.thermometerCount });
 
 let lengthsText = puzzle.thermoLengths?.join(',') ?? '';
 let lengthsError: string | null = null;
@@ -110,6 +116,8 @@ const visibleValues = () => slide !== null && report ? report.analysis.frames[sl
 function render() {
   $<HTMLInputElement>('#branching').checked = branchingPreference;
   $<HTMLInputElement>('#branching').disabled = !!busy;
+  $<HTMLSelectElement>('#branches-per-bulb').value = branchesPerBulb === undefined ? '' : String(branchesPerBulb);
+  $<HTMLSelectElement>('#branches-per-bulb').disabled = !!busy || !branchingPreference;
   const values = visibleValues(), bad = conflicts({ ...puzzle, values });
   const frame = slide !== null ? report?.analysis.frames[slide] : null;
   const reasonCells = new Set([...(frame?.relatedCells ?? []), ...(frame?.strictInequalities?.flat() ?? [])]);
@@ -185,6 +193,12 @@ $('#branching').onchange = e => {
   branchingPreference = (e.target as HTMLInputElement).checked;
   try { localStorage.setItem('thermo-generate-branching', String(branchingPreference)); } catch { /* Optional storage. */ }
   message('Generation options updated.', 'Branching applies to your next generated puzzle.'); render();
+};
+$('#branches-per-bulb').onchange = e => {
+  const value = (e.target as HTMLSelectElement).value;
+  branchesPerBulb = value ? Number(value) : undefined;
+  try { localStorage.setItem('thermo-generate-branches-per-bulb', value); } catch { /* Optional storage. */ }
+  message('Generation options updated.', 'The branch count applies to your next generated puzzle.'); render();
 };
 for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).onchange = e => {
   puzzle[key] = (e.target as HTMLInputElement).checked; save(); message('Generation options updated.', 'These settings apply when you generate your next puzzle.'); render();

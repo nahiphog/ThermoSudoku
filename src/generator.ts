@@ -33,8 +33,9 @@ export function hasBranchOverlap(paths: number[][]): boolean {
   return edges.some((a, i) => edges.slice(i + 1).some(b => crosses(a, b)));
 }
 
-export function drawBranchingLayout(symmetric: boolean, random = Math.random, count = 6, minLength = 3, maxLength = 9, exactLengths?: number[]): number[][] | null {
+export function drawBranchingLayout(symmetric: boolean, random = Math.random, count = 6, minLength = 3, maxLength = 9, exactLengths?: number[], branchesPerBulb?: number): number[][] | null {
   if (count < (symmetric ? 4 : 2) || (symmetric && count % 2)) return null;
+  if (branchesPerBulb !== undefined && (!Number.isInteger(branchesPerBulb) || branchesPerBulb < 2 || branchesPerBulb > 8 || count % (branchesPerBulb * (symmetric ? 2 : 1)))) return null;
   let lengths = exactLengths ? [...exactLengths] : Array(count).fill(minLength);
   if (symmetric) {
     const sorted = lengths.sort((a, b) => a - b);
@@ -44,7 +45,7 @@ export function drawBranchingLayout(symmetric: boolean, random = Math.random, co
   if (lengths.some(n => n < 2 || n > maxLength)) return null;
   const paths: number[][] = [];
   while (lengths.length) {
-    const groupSize = lengths.length === 3 ? 3 : 2;
+    const groupSize = branchesPerBulb ?? (lengths.length === 3 ? 3 : 2);
     const groupLengths = lengths.slice(0, groupSize);
     let placed = false;
     for (let trial = 0; trial < 300 && !placed; trial++) {
@@ -184,9 +185,9 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
   while (performance.now() < deadline) {
     attempts++;
     progress({ stage: 1, attempt: attempts, text: `Drawing ${count} ${options.branching ? "branch paths sharing bulbs" : "non-overlapping thermometers"} of ${minLength}+ cells.` });
-    const paths = timed('layout', () => (options.branching ? drawBranchingLayout : drawLayout)(options.symmetricThermos, random, count, minLength, variant === 'slow' ? 14 : 9, options.thermoLengths));
+    const paths = timed('layout', () => options.branching ? drawBranchingLayout(options.symmetricThermos, random, count, minLength, variant === 'slow' ? 14 : 9, options.thermoLengths, options.branchesPerBulb) : drawLayout(options.symmetricThermos, random, count, minLength, variant === 'slow' ? 14 : 9, options.thermoLengths));
     if (!paths) { profile.layoutFailures++; continue; }
-    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths; p.branching = options.branching ?? false; p.noOverlap = !p.branching;
+    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths; p.branching = options.branching ?? false; p.noOverlap = !p.branching; p.branchesPerBulb = options.branchesPerBulb;
     if (options.thermoLengths) p.thermoLengths = [...options.thermoLengths];
     p.thermometerCount = count; p.minThermoLength = minLength; p.logicalOnly = logicalOnly; p.noGivens = options.noGivens ?? false;
     const compiled = compileConstraints(paths, variant, p.branching);
@@ -231,7 +232,7 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
       }
       // Fresh uncached verification gates publication; failures never relax options.
       if (!unique(p.givens, false) || !validCompletion(solution, paths, variant, p.branching)) throw new Error('Final uniqueness verification failed.');
-      if (paths.length !== count || paths.some(t => t.length < minLength) || (options.branching ? hasBranchOverlap(paths) : hasOverlap(paths))
+      if ((options.branching && options.branchesPerBulb !== undefined && paths.some(t => paths.filter(other => other[0] === t[0]).length !== options.branchesPerBulb)) || paths.length !== count || paths.some(t => t.length < minLength) || (options.branching ? hasBranchOverlap(paths) : hasOverlap(paths))
         || thermoCells.some(c => p.givens[c] !== 0)
         || (options.noGivens && p.givens.some(Boolean))
         || p.givens.some((d, c) => !!d !== !!p.givens[80 - c] || (d !== 0 && d !== solution[c]))

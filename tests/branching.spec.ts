@@ -49,3 +49,36 @@ test('Generate and Simulation build shared-bulb layouts', async ({ page }) => {
   await expect(page.locator('#sim-results polyline')).toHaveCount(2);
   await expect(page.locator('#sim-results circle')).toHaveCount(1);
 });
+
+test('fixed branch counts validate groups, persist and reach both generation workers', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.goto('/');
+  const count = page.locator('#branches-per-bulb');
+  await expect(count).toBeDisabled();
+  await page.locator('#branching').check();
+  await count.selectOption('3');
+  await page.locator('#thermo-lengths').fill('3,3,3,3');
+  await expect(page.locator('#generation-error')).toContainText('multiple of 6');
+  await expect(page.locator('#generate')).toBeDisabled();
+  await page.locator('#symmetric-thermos').uncheck();
+  await page.locator('#thermo-lengths').fill('3,3,3');
+  await page.locator('#generate').click();
+  await expect(page.locator('#generation-stats')).toBeVisible({ timeout: 45000 });
+  await expect(page.locator('#thermos polyline')).toHaveCount(3);
+  await expect(page.locator('#thermos circle')).toHaveCount(1);
+  await count.selectOption('4');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('thermo-studio-v1')!).branchesPerBulb)).toBe(3);
+  await page.reload();
+  await expect(count).toHaveValue('4');
+  await page.goto('/?page=simulation');
+  await expect(page.locator('#sim-branches-per-bulb')).toBeDisabled();
+  await page.locator('#sim-branching').check();
+  await page.locator('#sim-branches-per-bulb').selectOption('4');
+  await page.locator('#sim-symmetric-thermos').uncheck();
+  await page.locator('#sim-trials').selectOption('1');
+  await page.locator('#sim-threshold').selectOption('0');
+  await page.locator('#sim-start').click();
+  await expect(page.locator('#sim-status')).toHaveText('Simulation complete.', { timeout: 45000 });
+  await expect(page.locator('#sim-results polyline')).toHaveCount(4);
+  await expect(page.locator('#sim-results circle')).toHaveCount(1);
+});

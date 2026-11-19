@@ -1,5 +1,5 @@
 export type Variant = 'thermo' | 'slow' | 'missing';
-export interface GenerationOptions { symmetricGivens: boolean; symmetricThermos: boolean; noOverlap: boolean; thermometerCount?: number; thermoLengths?: number[]; minThermoLength?: number; logicalOnly?: boolean; noGivens?: boolean; branching?: boolean }
+export interface GenerationOptions { symmetricGivens: boolean; symmetricThermos: boolean; noOverlap: boolean; thermometerCount?: number; thermoLengths?: number[]; minThermoLength?: number; logicalOnly?: boolean; noGivens?: boolean; branching?: boolean; branchesPerBulb?: number }
 export const DEFAULT_GENERATION: GenerationOptions = { symmetricGivens: true, symmetricThermos: true, noOverlap: true, thermometerCount: 6, minThermoLength: 3, logicalOnly: true, noGivens: false };
 export const MIN_THERMO_LENGTH = 3;
 export interface Puzzle extends GenerationOptions { version: 1; values: number[]; givens: number[]; thermos: number[][]; variant: Variant; noThermoGivens: boolean }
@@ -13,6 +13,7 @@ export function validatePuzzle(input: unknown): Puzzle {
   for (const key of ['symmetricGivens', 'symmetricThermos', 'noOverlap', 'logicalOnly', 'noGivens', 'branching'] as const) if (p[key] !== undefined && typeof p[key] !== 'boolean') throw new Error('Invalid generation setting.');
   for (const [value, max] of [[p.thermometerCount, 30], [p.minThermoLength, 14]] as const) if (value !== undefined && (!Number.isInteger(value) || value < (max === 30 ? 1 : 2) || value > max)) throw new Error('Invalid thermometer count or minimum length.');
   if (p.thermoLengths !== undefined && (!Array.isArray(p.thermoLengths) || p.thermoLengths.length < 1 || p.thermoLengths.length > 30 || p.thermoLengths.some(n => !Number.isInteger(n) || n < 2 || n > 14))) throw new Error('Exact lengths must contain 1–30 whole numbers from 2 to 14.');
+  if (p.branchesPerBulb !== undefined && (!Number.isInteger(p.branchesPerBulb) || p.branchesPerBulb < 2 || p.branchesPerBulb > 8)) throw new Error('Choose 2–8 branches per bulb.');
   const variant = p.variant ?? 'thermo';
   for (const values of [p.values, p.givens]) {
     if (!Array.isArray(values) || values.length !== 81 || values.some(v => !Number.isInteger(v) || v < 0 || v > 9)) throw new Error('A grid must contain exactly 81 digits from 0 to 9.');
@@ -34,6 +35,8 @@ export function example(): Puzzle {
 }
 
 export function generationError(variant: Variant, options: GenerationOptions): string | null {
+  const branches = options.branching ? options.branchesPerBulb : undefined;
+  if (branches !== undefined && (!Number.isInteger(branches) || branches < 2 || branches > 8)) return 'Choose 2–8 branches per bulb.';
   if (options.thermoLengths !== undefined) {
     const lengths = options.thermoLengths;
     if (!Array.isArray(lengths) || lengths.length < 1 || lengths.length > 30 || lengths.some(n => !Number.isInteger(n) || n < 2 || n > 14)) return 'Enter 1–30 comma-separated lengths, each a whole number from 2 to 14.';
@@ -42,8 +45,9 @@ export function generationError(variant: Variant, options: GenerationOptions): s
     if (options.symmetricThermos && lengths.some(n => lengths.filter(v => v === n).length % 2)) return 'Rotational symmetry requires each length an even number of times. Adjust the lengths or turn off rotational thermometer symmetry.';
   }
   const count = options.thermoLengths?.length ?? options.thermometerCount ?? 6, length = options.thermoLengths ? Math.min(...options.thermoLengths) : options.minThermoLength ?? 3;
+  if (branches !== undefined && count % (branches * (options.symmetricThermos ? 2 : 1))) return `Enter a multiple of ${branches * (options.symmetricThermos ? 2 : 1)} branch lengths for ${branches} branches per bulb${options.symmetricThermos ? ' with rotational symmetry' : ''}.`;
   if (options.branching && count < (options.symmetricThermos ? 4 : 2)) return 'Branching needs at least two paths, or four with rotational symmetry.';
-  if (options.branching && (options.thermoLengths?.reduce((sum, n) => sum + n - 1, 0) ?? count * (length - 1)) + (options.symmetricThermos ? 2 * Math.floor(count / 4) : Math.floor(count / 2)) > 81) return 'These branches need more than 81 cells. Reduce the count or lengths.';
+  if (options.branching && (options.thermoLengths?.reduce((sum, n) => sum + n - 1, 0) ?? count * (length - 1)) + (branches !== undefined ? count / branches : options.symmetricThermos ? 2 * Math.floor(count / 4) : Math.floor(count / 2)) > 81) return 'These branches need more than 81 cells. Reduce the count or lengths.';
   if (!Number.isInteger(count) || count < 1 || count > 30 || !Number.isInteger(length) || length < 2 || length > 14) return 'Choose 1–30 thermometers and a minimum length of 2–14 cells.';
   if (variant !== 'slow' && length > 9) return 'Strict Thermo supports at most 9 cells. Choose Slow Thermo for longer paths.';
   if (!options.branching && count * length > 81) return count + ' non-overlapping thermometers of ' + length + '+ cells need at least ' + count * length + ' cells; the grid has 81.';

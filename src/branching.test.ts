@@ -67,3 +67,40 @@ it('checks uniqueness rather than adding clues for clue-free Missing branches', 
   expect(() => buildCustom(p, () => {}, seeded(5))).toThrow('more than one solution without given cells');
   expect(p.givens).toEqual(Array(81).fill(0));
 });
+
+it.each([2, 3, 4, 5, 6, 7, 8])('draws exactly %s branches at every bulb, with and without symmetry', branches => {
+  for (const symmetric of [false, true]) {
+    const count = branches * (symmetric ? 2 : 1);
+    const paths = drawBranchingLayout(symmetric, seeded(11), count, 2, 9, Array(count).fill(2), branches)!;
+    expect(paths).not.toBeNull(); expect(paths).toHaveLength(count);
+    expect(hasBranchOverlap(paths)).toBe(false);
+    for (const root of new Set(paths.map(t => t[0]))) expect(paths.filter(t => t[0] === root)).toHaveLength(branches);
+    if (symmetric) for (const path of paths) expect(paths).toContainEqual(rotatePath(path));
+  }
+});
+
+it('validates fixed branch groups, capacity and saved settings', () => {
+  const options = { ...blank(), branching: true, branchesPerBulb: 4, symmetricThermos: false, thermoLengths: [3, 3, 3, 3] };
+  expect(generationError('thermo', options)).toBeNull();
+  expect(generationError('thermo', { ...options, symmetricThermos: true })).toContain('multiple of 8');
+  expect(generationError('thermo', { ...options, thermoLengths: [3, 3, 3] })).toContain('multiple of 4');
+  expect(generationError('thermo', { ...options, branching: false })).toBeNull();
+  expect(validatePuzzle(JSON.parse(JSON.stringify(options))).branchesPerBulb).toBe(4);
+  for (const n of [1, 9, 2.5, NaN]) {
+    expect(generationError('thermo', { ...options, branchesPerBulb: n })).toContain('2–8');
+    expect(() => validatePuzzle({ ...options, branchesPerBulb: n })).toThrow('2–8');
+    expect(drawBranchingLayout(false, seeded(1), 4, 3, 9, undefined, n)).toBeNull();
+  }
+});
+
+it.each(['thermo', 'slow', 'missing'] as const)('generates certified %s puzzles with four branches per bulb', variant => {
+  const options = { ...blank(variant), branching: true, branchesPerBulb: 4, symmetricThermos: false, thermoLengths: [3, 3, 3, 3] };
+  const result = generateDetailed(variant, options, () => {}, seeded(21), 15000);
+  expect(result.puzzle.branchesPerBulb).toBe(4);
+  expect(result.puzzle.thermos).toHaveLength(4);
+  expect(new Set(result.puzzle.thermos.map(t => t[0])).size).toBe(1);
+  expect(validCompletion(result.solution, result.puzzle.thermos, variant, true)).toBe(true);
+  expect(result.analysis.frames.at(-1)!.values).toEqual(result.solution);
+  const verified = fastSolve(result.puzzle);
+  expect(verified.exhausted).toBe(true); expect(verified.solutions).toEqual([result.solution]);
+}, 30000);
