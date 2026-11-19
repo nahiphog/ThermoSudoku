@@ -4,7 +4,7 @@ import { slowBoundsDescription } from './slow-thermometer';
 import { TECHS } from './techniques';
 import { conflicts } from './solver';
 import { runLogical } from './logical-runner';
-import { hasRepeatedStep, type Puzzle } from './puzzle';
+import { sharedBulb, hasRepeatedStep, type Puzzle } from './puzzle';
 import { bit, cellName, cloneGrid, digitsOf, gridFromValues, isSolved, popcount, setValue, type Grid } from './vendor/sudokui/board';
 import { LEVELS, LEVEL_MAX_SCORE, type Level } from './vendor/sudokui/ratings';
 import type { CellDigit } from './vendor/sudokui/steps';
@@ -49,8 +49,10 @@ export function analyze(p: Puzzle, budgetMs = 10000, allowBruteForce = true): An
       bulb: (index, cell) => {
         const info = TECHS.BULB_FINDING; credit(info.name, info.score, info.level);
         const path = p.thermos[index];
-        add(g, 'bulb', info.name, bulbFindingDescription(path, cell, index), [], [], undefined, path);
-        result.frames.at(-1)!.bulbFinding = { path: [...path], bulb: cell, rejected: cell === path[0] ? path.at(-1)! : path[0] };
+        const shared = sharedBulb(p.thermos, path, p.branching);
+        const related = shared ? [...new Set(p.thermos.filter(t => t[0] === cell).flat())] : path;
+        add(g, 'bulb', info.name, bulbFindingDescription(path, cell, index, shared), [], [], undefined, related);
+        result.frames.at(-1)!.bulbFinding = { path: [...related], bulb: cell, rejected: cell === path[0] ? path.at(-1)! : path[0] };
       },
       slow: deduction => {
         const info = TECHS.SLOW_THERMOMETER_BOUNDS;

@@ -9,7 +9,7 @@ export function parseImport(text: string, variant?: Variant): Puzzle {
     const p = validatePuzzle({ ...JSON.parse(trimmed), ...(variant ? { variant } : {}) }); p.values = [...p.givens]; return p;
   }
   // Accept a copied token on its own or embedded in a message.
-  const tokens = trimmed.match(/TS1\|[^\s<>"`]+/g);
+  const tokens = trimmed.match(/TS[12]\|[^\s<>"`]+/g);
   if (tokens) {
     if (tokens.length !== 1) throw new Error('Paste just one puzzle string.');
     return decodePuzzle(tokens[0], variant);
@@ -18,7 +18,7 @@ export function parseImport(text: string, variant?: Variant): Puzzle {
   if (/^[0-9.]{81}$/.test(digits)) {
     const p = blank(variant); p.givens = [...digits].map(d => d === '.' ? 0 : Number(d)); p.values = [...p.givens]; return p;
   }
-  throw new Error('Paste a TS1 puzzle string, puzzle JSON, or 81 digits (0 or . for empty cells).');
+  throw new Error('Paste a TS1 or TS2 puzzle string, puzzle JSON, or 81 digits (0 or . for empty cells).');
 }
 
 export interface ImportResult extends SolveResult { analysis?: Analysis; analysisError?: string }

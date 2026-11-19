@@ -1,6 +1,6 @@
 import type { SlowBoundsDeduction } from './slow-thermometer';
 import { applyLogicalStep, conflicts, nextLogicalStep, propagate } from './solver';
-import { hasRepeatedStep, type Puzzle } from './puzzle';
+import { sharedBulb, hasRepeatedStep, type Puzzle } from './puzzle';
 import { digitsOf, gridFromValues, isSolved, type Grid } from './vendor/sudokui/board';
 import type { CellDigit } from './vendor/sudokui/steps';
 import type { Step } from './techniques';
@@ -18,11 +18,13 @@ export function runLogical(g: Grid, p: Puzzle, deadline: number, observer?: {
     if (p.variant !== 'missing') return true;
     const domains = gridDomains(g);
     for (const [index, path] of p.thermos.entries()) {
-      const support = missingSupports(domains, path);
+      const support = missingSupports(domains, path, sharedBulb(p.thermos, path, p.branching));
       if (!support.forward && !support.reverse) return false;
       if (bulbEnds[index] === null && (!!support.forward !== !!support.reverse)) {
         const cell = support.forward ? path[0] : path.at(-1)!;
-        bulbEnds[index] = cell; observer?.bulb?.(index, cell);
+        bulbEnds[index] = cell;
+        if (sharedBulb(p.thermos, path, p.branching)) p.thermos.forEach((other, i) => { if (other[0] === cell) bulbEnds[i] = cell; });
+        observer?.bulb?.(index, cell);
       }
     }
     return true;
@@ -31,7 +33,7 @@ export function runLogical(g: Grid, p: Puzzle, deadline: number, observer?: {
     if (performance.now() >= deadline) throw new Error('Logical analysis budget reached.');
     if (!findBulbs()) return 'contradiction';
     const before = observer && p.variant !== 'slow' ? [...g.cands] : null;
-    if (!propagate(g, p.thermos, p.variant, observer?.slow)) return 'contradiction';
+    if (!propagate(g, p.thermos, p.variant, observer?.slow, p.branching)) return 'contradiction';
     if (before) {
       const removed = before.flatMap((mask, c) => digitsOf(mask & ~g.cands[c]).map(digit => ({ cell: c, digit })));
       if (removed.length) observer!.thermo(removed);

@@ -9,7 +9,7 @@ import { findHiddenSubset, findNakedSubset } from './vendor/sudokui/techniques/s
 import { findBasicFish } from './vendor/sudokui/techniques/fish';
 import { findWWing, findXYWing, findXYZWing } from './vendor/sudokui/techniques/wings';
 import { findEmptyRectangle, findTurbotFamily } from './vendor/sudokui/techniques/singleDigit';
-import { hasRepeatedStep, validatePuzzle, type Puzzle, type Variant } from './puzzle';
+import { sharedBulb, hasRepeatedStep, validatePuzzle, type Puzzle, type Variant } from './puzzle';
 
 // Explicitly opt in only to deductions independent of uniqueness assumptions.
 const finders: ((g: Grid) => Step | null)[] = [
@@ -35,7 +35,7 @@ export function conflicts(p: Puzzle): Set<number> {
   p.values.forEach((v, c) => { if (v) for (const other of PEERS[c]) if (p.values[other] === v) { bad.add(c); bad.add(other); } });
   for (const t of p.thermos) {
     if (p.variant === 'missing') {
-      const supports = missingSupports(p.values.map(v => v ? bit(v) : 511), t);
+      const supports = missingSupports(p.values.map(v => v ? bit(v) : 511), t, sharedBulb(p.thermos, t, p.branching));
       if (!supports.forward && !supports.reverse) for (const c of t) bad.add(c);
       continue;
     }
@@ -50,7 +50,7 @@ export function conflicts(p: Puzzle): Set<number> {
 /** Arc consistency for each directed edge, iterated across overlapping paths.
  * Fixed digits are singleton domains, so they constrain both directions.
  * No domain ever grows; contradictory cycles terminate with an empty domain. */
-export function propagate(g: Grid, thermos: number[][], variant: Variant = 'thermo', onSlowBounds?: (deduction: SlowBoundsDeduction) => void): boolean {
+export function propagate(g: Grid, thermos: number[][], variant: Variant = 'thermo', onSlowBounds?: (deduction: SlowBoundsDeduction) => void, branching = false): boolean {
   let changed = true;
   while (changed) {
     changed = false;
@@ -60,7 +60,7 @@ export function propagate(g: Grid, thermos: number[][], variant: Variant = 'ther
     }
     if (variant === 'missing') {
       for (const path of thermos) {
-        const support = missingSupports(gridDomains(g), path);
+        const support = missingSupports(gridDomains(g), path, sharedBulb(thermos, path, branching));
         for (let i = 0; i < path.length; i++) {
           const c = path[i], mask = support.union[i];
           if (!mask) return false;
@@ -86,7 +86,7 @@ export function propagate(g: Grid, thermos: number[][], variant: Variant = 'ther
 }
 export function candidates(p: Puzzle): { grid: Grid; valid: boolean } {
   const grid = gridFromValues(p.values);
-  return { grid, valid: conflicts(p).size === 0 && propagate(grid, p.thermos, p.variant) };
+  return { grid, valid: conflicts(p).size === 0 && propagate(grid, p.thermos, p.variant, undefined, p.branching) };
 }
 export interface Hint { description: string; values: number[]; candidates: number[]; technique: string }
 export function hint(p: Puzzle): Hint | null {
@@ -94,10 +94,10 @@ export function hint(p: Puzzle): Hint | null {
   const { grid: g, valid } = candidates(p);
   if (!valid) throw new Error('This position has a contradiction. Check the highlighted digits or undo your last move.');
   if (p.variant === 'missing') for (const [index, path] of p.thermos.entries()) {
-    const support = missingSupports(gridDomains(g), path);
+    const support = missingSupports(gridDomains(g), path, sharedBulb(p.thermos, path, p.branching));
     if (!!support.forward !== !!support.reverse) {
       const cell = support.forward ? path[0] : path.at(-1)!;
-      return { description: bulbFindingDescription(path, cell, index), values: [...g.values], candidates: [...g.cands], technique: 'Bulb finding' };
+      return { description: bulbFindingDescription(path, cell, index, sharedBulb(p.thermos, path, p.branching)), values: [...g.values], candidates: [...g.cands], technique: 'Bulb finding' };
     }
   }
   const base = gridFromValues(p.values);
@@ -109,7 +109,7 @@ export function hint(p: Puzzle): Hint | null {
     for (const { cell, digit } of step.eliminations) g.cands[cell] &= ~bit(digit);
     for (const { cell, digit } of step.placements) setValue(g, cell, digit);
     descriptions.push(step.description);
-    if (!propagate(g, p.thermos, p.variant)) throw new Error('No valid continuation from this position.');
+    if (!propagate(g, p.thermos, p.variant, undefined, p.branching)) throw new Error('No valid continuation from this position.');
     if (step.placements.length) return { description: descriptions.join('\n'), values: [...g.values], candidates: [...g.cands], technique: step.tech.replaceAll('_', ' ') };
   }
   return null;
@@ -126,7 +126,7 @@ export function solve(p: Puzzle, budgetMs = 5000): SolveResult {
     if (performance.now() >= deadline) { result.exhausted = false; return; }
     result.nodes++;
     while (true) {
-      if (!propagate(g, p.thermos, p.variant)) return;
+      if (!propagate(g, p.thermos, p.variant, undefined, p.branching)) return;
       if (performance.now() >= deadline) { result.exhausted = false; return; }
       const step = nextLogicalStep(g);
       if (!step) break;

@@ -19,11 +19,13 @@ export function mountCustomBuildPage() {
         <button data-variant="thermo">Thermo</button><button data-variant="slow">Slow Thermo</button><button data-variant="missing">Missing Thermometer</button>
       </div></div>
       <p id="custom-rules" class="muted"></p>
+      <label><input id="custom-branching" type="checkbox"> Branching thermometers (shared bulb)</label>
+      <p id="custom-branch-help" class="muted" hidden>Use Add branch beside a placed path to start another path from the same bulb. Each branch follows the selected rules. Missing Thermometer hides the single shared bulb; all branches increase away from that shared endpoint.</p>
       <p>Click or tap a starting cell, then neighboring cells (including diagonals) to draw a thermometer. Choose Finish thermo before starting another. Overlapping paths are allowed.</p>
       <div class="custom-toolbar"><button id="custom-finish" class="primary">Finish thermo</button><button id="custom-back" class="outline">Undo last cell</button><button id="custom-cancel" class="outline">Cancel path</button></div>
       <p class="muted">Finish your paths, then Build a puzzle with one solution using this exact layout. Clues may appear on thermometers when needed.</p>
       <div class="generation-options"><label><input id="custom-logical-only" type="checkbox" checked> Logical techniques only (no Brute force)</label><label><input id="custom-no-givens" type="checkbox"> No given cells</label></div>
-      <p class="muted">With No given cells, your thermometers alone must determine one solution. Missing Thermometer requires given cells.</p>
+      <p class="muted">With No given cells, your thermometers alone must determine one solution. Missing Thermometer requires given cells unless it has shared-bulb branches.</p>
       <button id="custom-build" class="primary">Build</button>
       <p id="custom-status" role="status" aria-live="polite"></p>
     </section>
@@ -85,6 +87,9 @@ export function mountCustomBuildPage() {
     get('#custom-board .cells').append(cell); return cell;
   });
   function render() {
+    get<HTMLInputElement>('#custom-branching').checked = puzzle.branching ?? false;
+    get<HTMLInputElement>('#custom-branching').disabled = !!worker || !!draft.length;
+    get('#custom-branch-help').hidden = !puzzle.branching;
     get<HTMLInputElement>('#custom-logical-only').checked = puzzle.logicalOnly ?? true;
     get<HTMLInputElement>('#custom-logical-only').disabled = !!worker;
     get<HTMLInputElement>('#custom-no-givens').checked = puzzle.noGivens ?? false;
@@ -96,7 +101,7 @@ export function mountCustomBuildPage() {
       const active = button.dataset.variant === puzzle.variant;
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); button.disabled = !!worker;
     });
-    get('#custom-rules').textContent = puzzle.variant === 'slow' ? 'Slow Thermo: digits never decrease, with at least one equal consecutive pair in the solution. Paths can contain 2–81 cells.' : puzzle.variant === 'missing' ? 'Missing Thermometer: bulbs are hidden; either end can be the bulb. Paths can contain 2–9 cells.' : 'Thermo: digits strictly increase from the first cell (the bulb). Paths can contain 2–9 cells.';
+    get('#custom-rules').textContent = puzzle.variant === 'slow' ? 'Slow Thermo: digits never decrease, with at least one equal consecutive pair in the solution. Paths can contain 2–81 cells.' : puzzle.variant === 'missing' ? (puzzle.branching ? 'Missing Thermometer: branches with the same starting cell share one hidden bulb there. Unbranched paths can have a bulb at either end. Paths contain 2–9 cells.' : 'Missing Thermometer: bulbs are hidden; either end can be the bulb. Paths can contain 2–9 cells.') : 'Thermo: digits strictly increase from the first cell (the bulb). Paths can contain 2–9 cells.';
     get('#custom-board svg').innerHTML = thermometerMarkup(puzzle, values, frame?.bulbEnds) + (draft.length ? `<g class="custom-draft">${thermometerMarkup({ ...puzzle, thermos: [draft] }, puzzle.givens)}</g>` : '');
     get('#custom-board .unit-arrows')?.remove();
     get('#custom-board').insertAdjacentHTML('beforeend', unitArrows(frame));
@@ -151,7 +156,15 @@ export function mountCustomBuildPage() {
       const label = document.createElement('span'); label.textContent = `Thermo ${index + 1} · ${path.length} cells · r${Math.floor(path[0] / 9) + 1}c${path[0] % 9 + 1}`;
       const remove = document.createElement('button'); remove.className = 'text-button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete thermo ${index + 1}`); remove.disabled = !!draft.length || !!worker;
       remove.onclick = () => { remember(); puzzle.thermos.splice(index, 1); save(); status('Thermometer deleted. Undo change restores it.'); render(); };
-      row.append(label, remove); paths.append(row);
+      row.append(label);
+      if (puzzle.branching) {
+        const branch = document.createElement('button'); branch.className = 'text-button'; branch.textContent = 'Add branch';
+        branch.setAttribute('aria-label', `Add branch to thermo ${index + 1}`);
+        branch.disabled = !!worker || !!draft.length || puzzle.thermos.length >= 100;
+        branch.onclick = () => { draft = [path[0]]; selected = path[0]; slide = null; revealed = false; status('Shared bulb selected. Choose neighboring cells for the new branch, then Finish thermo.'); render(); cells[selected].focus(); };
+        row.append(branch);
+      }
+      row.append(remove); paths.append(row);
     });
   }
   root.querySelectorAll<HTMLButtonElement>('[data-variant]').forEach(button => button.onclick = () => {
@@ -182,6 +195,11 @@ export function mountCustomBuildPage() {
     puzzle.noGivens = (event.target as HTMLInputElement).checked;
     try { localStorage.setItem('thermo-custom-no-givens', String(puzzle.noGivens)); } catch { /* Optional storage. */ }
     save(); status('Build option updated. This applies to the next puzzle you build.'); render();
+  };
+  get('#custom-branching').onchange = event => {
+    const enabled = (event.target as HTMLInputElement).checked;
+    remember(); puzzle.branching = enabled; save();
+    status(enabled ? 'Branching enabled. Add branches from a shared bulb; existing paths with the same starting cell now share one bulb.' : 'Branching disabled. Existing paths are kept as independent thermometers.'); render();
   };
   get('#custom-build').onclick = () => {
     if (worker) { worker.terminate(); worker = null; status('Build canceled. Your puzzle is unchanged.'); render(); return; }

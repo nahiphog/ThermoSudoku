@@ -19,7 +19,7 @@ it('rejects malformed strings and disconnected or repeated path cells', () => {
   for (const path of ['1100', '1199', '1111', '111', '']) {
     if (path) expect(() => decodePuzzle(prefix + path)).toThrow();
   }
-  expect(() => decodePuzzle(prefix.replace('TS1', 'TS2'))).toThrow();
+  expect(() => decodePuzzle(prefix.replace('TS1', 'TS3'))).toThrow();
 });
 it('explains impossible selections before attempting generation', () => {
   expect(generationError('thermo', {...DEFAULT_GENERATION, minThermoLength: 10})).toContain('at most 9');

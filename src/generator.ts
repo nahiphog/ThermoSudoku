@@ -24,6 +24,56 @@ export function hasOverlap(paths: number[][]): boolean {
   return edges.some((a, i) => edges.slice(i + 1).some(b => crosses(a, b)));
 }
 
+/** Branches share only their starting bulb; other intersections remain forbidden. */
+export function hasBranchOverlap(paths: number[][]): boolean {
+  for (let i = 0; i < paths.length; i++) for (let j = i + 1; j < paths.length; j++) {
+    if (paths[i].some(c => paths[j].includes(c) && (c !== paths[i][0] || c !== paths[j][0]))) return true;
+  }
+  const edges = paths.flatMap(segments);
+  return edges.some((a, i) => edges.slice(i + 1).some(b => crosses(a, b)));
+}
+
+export function drawBranchingLayout(symmetric: boolean, random = Math.random, count = 6, minLength = 3, maxLength = 9, exactLengths?: number[]): number[][] | null {
+  if (count < (symmetric ? 4 : 2) || (symmetric && count % 2)) return null;
+  let lengths = exactLengths ? [...exactLengths] : Array(count).fill(minLength);
+  if (symmetric) {
+    const sorted = lengths.sort((a, b) => a - b);
+    if (sorted.some((n, i) => i % 2 === 0 && sorted[i + 1] !== n)) return null;
+    lengths = sorted.filter((_, i) => i % 2 === 0);
+  }
+  if (lengths.some(n => n < 2 || n > maxLength)) return null;
+  const paths: number[][] = [];
+  while (lengths.length) {
+    const groupSize = lengths.length === 3 ? 3 : 2;
+    const groupLengths = lengths.slice(0, groupSize);
+    let placed = false;
+    for (let trial = 0; trial < 300 && !placed; trial++) {
+      const root = Math.floor(random() * 81);
+      if (paths.some(p => p.includes(root) || (symmetric && p.includes(80 - root))) || (symmetric && root === 40)) continue;
+      const group: number[][] = [];
+      for (const length of groupLengths) {
+        const path = [root];
+        while (path.length < length) {
+          const next = shuffle(neighbors[path.at(-1)!], random).find(c => {
+            if (path.includes(c)) return false;
+            const additions = [...group, [...path, c]];
+            return !hasBranchOverlap([...paths, ...additions, ...(symmetric ? additions.map(rotatePath) : [])]);
+          });
+          if (next === undefined) break;
+          path.push(next);
+        }
+        if (path.length !== length) break;
+        group.push(path);
+      }
+      if (group.length !== groupSize) continue;
+      paths.push(...group, ...(symmetric ? group.map(rotatePath) : [])); placed = true;
+    }
+    if (!placed) return null;
+    lengths = lengths.slice(groupSize);
+  }
+  return paths;
+}
+
 export interface GenerationProfile {
   stageMs: Record<'layout' | 'fillThermos' | 'fillGrid' | 'uniqueness' | 'logical' | 'walkthrough', number>;
   layoutFailures: number; fillFailures: number; nonUniqueLayouts: number; logicalRejected: number;
@@ -85,7 +135,7 @@ export function drawLayout(symmetric: boolean, random = Math.random, count = 6, 
 /** Randomized MRV backtracking restricted to the requested phase's cells.
  * Phase 2 never places a digit in an outside cell. Phase 3 keeps its thermo
  * assignment fixed; failure returns to a fresh layout instead of changing it. */
-export function fillCells(start: Grid, p: Puzzle, targets: number[], random: () => number, deadline: number, requireRepeat: boolean, compiled = compileConstraints(p.thermos, p.variant), onNode?: () => void): Grid | null {
+export function fillCells(start: Grid, p: Puzzle, targets: number[], random: () => number, deadline: number, requireRepeat: boolean, compiled = compileConstraints(p.thermos, p.variant, p.branching), onNode?: () => void): Grid | null {
   const initial = new Uint16Array(81);
   for (let c = 0; c < 81; c++) initial[c] = start.values[c] ? bit(start.values[c]) : start.cands[c];
   function visit(domains: Uint16Array): Grid | null {
@@ -133,13 +183,13 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
   let attempts = 0;
   while (performance.now() < deadline) {
     attempts++;
-    progress({ stage: 1, attempt: attempts, text: `Drawing ${count} non-overlapping thermometers of ${minLength}+ cells.` });
-    const paths = timed('layout', () => drawLayout(options.symmetricThermos, random, count, minLength, variant === 'slow' ? 14 : 9, options.thermoLengths));
+    progress({ stage: 1, attempt: attempts, text: `Drawing ${count} ${options.branching ? "branch paths sharing bulbs" : "non-overlapping thermometers"} of ${minLength}+ cells.` });
+    const paths = timed('layout', () => (options.branching ? drawBranchingLayout : drawLayout)(options.symmetricThermos, random, count, minLength, variant === 'slow' ? 14 : 9, options.thermoLengths));
     if (!paths) { profile.layoutFailures++; continue; }
-    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths;
+    const p = blank(variant, true); p.symmetricThermos = options.symmetricThermos; p.thermos = paths; p.branching = options.branching ?? false; p.noOverlap = !p.branching;
     if (options.thermoLengths) p.thermoLengths = [...options.thermoLengths];
     p.thermometerCount = count; p.minThermoLength = minLength; p.logicalOnly = logicalOnly; p.noGivens = options.noGivens ?? false;
-    const compiled = compileConstraints(paths, variant);
+    const compiled = compileConstraints(paths, variant, p.branching);
     if (variant === 'slow' && !compiled.repeats.length) { profile.layoutFailures++; continue; }
     const thermoCells = [...new Set(paths.flat())], thermoSet = new Set(thermoCells);
     progress({ stage: 2, attempt: attempts, text: 'Filling thermometer cells while obeying Sudoku and thermometer rules.' });
@@ -180,8 +230,8 @@ function pipeline(variant: Variant, random: () => number, budgetMs: number, opti
         if (logical.some((d, c) => d !== solution[c])) throw new Error('Logical solution did not match the verified completion.');
       }
       // Fresh uncached verification gates publication; failures never relax options.
-      if (!unique(p.givens, false) || !validCompletion(solution, paths, variant)) throw new Error('Final uniqueness verification failed.');
-      if (paths.length !== count || paths.some(t => t.length < minLength) || hasOverlap(paths)
+      if (!unique(p.givens, false) || !validCompletion(solution, paths, variant, p.branching)) throw new Error('Final uniqueness verification failed.');
+      if (paths.length !== count || paths.some(t => t.length < minLength) || (options.branching ? hasBranchOverlap(paths) : hasOverlap(paths))
         || thermoCells.some(c => p.givens[c] !== 0)
         || (options.noGivens && p.givens.some(Boolean))
         || p.givens.some((d, c) => !!d !== !!p.givens[80 - c] || (d !== 0 && d !== solution[c]))

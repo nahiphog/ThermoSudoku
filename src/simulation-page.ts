@@ -33,6 +33,7 @@ export function mountSimulationPage() {
     if (text.trim() && !/^\s*\d+\s*(,\s*\d+\s*)*$/.test(text)) return 'Enter whole-number lengths separated by commas, for example 4,4,4,5.';
     puzzle.thermoLengths = text.trim() ? text.split(',').map(Number) : undefined;
     puzzle.noGivens = $<HTMLInputElement>('no-givens').checked;
+    puzzle.branching = $<HTMLInputElement>('branching').checked;
     puzzle.logicalOnly = $<HTMLInputElement>('logical-only').checked;
     puzzle.symmetricThermos = $<HTMLInputElement>('symmetric-thermos').checked;
     return generationError(puzzle.variant, puzzle);

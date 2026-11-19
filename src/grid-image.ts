@@ -10,10 +10,11 @@ export function gridImage(puzzle: Puzzle, values: number[]): Promise<Blob> {
   const x = (c: number) => (c % 9) * 100 + 50, y = (c: number) => Math.floor(c / 9) * 100 + 50;
   ctx.strokeStyle = ctx.fillStyle = '#d0d0d3'; ctx.lineWidth = 32; ctx.lineCap = ctx.lineJoin = 'round';
   const bulbs = displayBulbs(puzzle, values);
+  const seen = new Set<number>();
   for (const [index, t] of puzzle.thermos.entries()) {
     ctx.beginPath(); ctx.moveTo(x(t[0]), y(t[0])); for (const c of t.slice(1)) ctx.lineTo(x(c), y(c)); ctx.stroke();
     const bulb = bulbs[index];
-    if (bulb !== null) { ctx.beginPath(); ctx.arc(x(bulb), y(bulb), 34, 0, Math.PI * 2); ctx.fill(); }
+    if (bulb !== null && !seen.has(bulb)) { seen.add(bulb); ctx.beginPath(); ctx.arc(x(bulb), y(bulb), 34, 0, Math.PI * 2); ctx.fill(); }
   }
   ctx.lineCap = 'butt';
   for (let i = 0; i <= 9; i++) {

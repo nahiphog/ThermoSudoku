@@ -1,5 +1,5 @@
 import { missingSupports } from './missing-thermometer';
-import { hasRepeatedStep, validatePuzzle, type Puzzle, type Variant } from './puzzle';
+import { sharedBulb, hasRepeatedStep, validatePuzzle, type Puzzle, type Variant } from './puzzle';
 import { ALL_CANDS, bit, digitsOf, PEERS, popcount, UNITS } from './vendor/sudokui/board';
 
 // Support sets for x < y and x <= y, indexed by the other cell's domain.
@@ -17,9 +17,9 @@ export interface CompiledConstraints {
   slow: boolean;
   missing: number[][];
 }
-export function compileConstraints(thermos: number[][], variant: Variant): CompiledConstraints {
+export function compileConstraints(thermos: number[][], variant: Variant, branching = false): CompiledConstraints {
   const links: Link[][] = Array.from({ length: 81 }, () => []), repeats: [number, number][] = [];
-  for (const path of variant === 'missing' ? [] : thermos) for (let i = 1; i < path.length; i++) {
+  for (const path of variant === 'missing' ? thermos.filter(t => sharedBulb(thermos, t, branching)) : thermos) for (let i = 1; i < path.length; i++) {
     const a = path[i - 1], b = path[i], equal = variant === 'slow' && !PEERS[a].includes(b);
     links[a].push({ other: b, forward: true, equal }); links[b].push({ other: a, forward: false, equal });
     if (equal) repeats.push([a, b]);
@@ -31,7 +31,7 @@ export function compileConstraints(thermos: number[][], variant: Variant): Compi
       links[b].push({ other: a, forward: false, equal: false });
     }
   }
-  return { links, repeats, slow: variant === 'slow', missing: variant === 'missing' ? thermos : [] };
+  return { links, repeats, slow: variant === 'slow', missing: variant === 'missing' ? thermos.filter(t => !sharedBulb(thermos, t, branching)) : [] };
 }
 
 /** Every cell, including a fixed cell, has a nonempty domain. Changed cells
@@ -71,10 +71,10 @@ export function propagateDomains(domains: Uint16Array, compiled: CompiledConstra
   return !compiled.slow || compiled.repeats.some(([a, b]) => (domains[a] & domains[b]) !== 0);
 }
 
-export function validCompletion(values: number[], thermos: number[][], variant: Variant): boolean {
+export function validCompletion(values: number[], thermos: number[][], variant: Variant, branching = false): boolean {
   return values.length === 81 && values.every(d => Number.isInteger(d) && d >= 1 && d <= 9)
     && UNITS.every(unit => new Set(unit.map(c => values[c])).size === 9)
-    && thermos.every(path => path.every((c, i) => i === 0 || (variant === 'slow' ? values[path[i - 1]] <= values[c] : values[path[i - 1]] < values[c])) || (variant === 'missing' && path.every((c, i) => i === 0 || values[path[i - 1]] > values[c])))
+    && thermos.every(path => path.every((c, i) => i === 0 || (variant === 'slow' ? values[path[i - 1]] <= values[c] : values[path[i - 1]] < values[c])) || (variant === 'missing' && !sharedBulb(thermos, path, branching) && path.every((c, i) => i === 0 || values[path[i - 1]] > values[c])))
     && (variant !== 'slow' || hasRepeatedStep(values, thermos));
 }
 
@@ -106,14 +106,14 @@ function search(values: number[], compiled: CompiledConstraints, deadline: numbe
 /** Independent counter used for differential testing and imported positions. */
 export function fastSolve(input: Puzzle, budgetMs = Infinity) {
   const p = validatePuzzle(input);
-  return search(p.values, compileConstraints(p.thermos, p.variant), performance.now() + budgetMs);
+  return search(p.values, compileConstraints(p.thermos, p.variant, p.branching), performance.now() + budgetMs);
 }
 
 /** Scope is one immutable layout and known completion. Exact clue-mask results
  * are reusable only within this scope. Every search rebuilds candidate domains. */
 export function createUniquenessChecker(p: Puzzle, completion: number[]) {
-  if (!validCompletion(completion, p.thermos, p.variant)) throw new Error('Invalid reference completion.');
-  const known = [...completion], compiled = compileConstraints(p.thermos, p.variant);
+  if (!validCompletion(completion, p.thermos, p.variant, p.branching)) throw new Error('Invalid reference completion.');
+  const known = [...completion], compiled = compileConstraints(p.thermos, p.variant, p.branching);
   const cache = new Map<string, boolean>();
   let calls = 0, hits = 0, nodes = 0;
   return {

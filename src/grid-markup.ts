@@ -15,7 +15,9 @@ export function board(p: Puzzle, values: number[], differences: number[] = [], f
 export function thermometerMarkup(p: Puzzle, values: number[], known?: (number | null)[]): string {
   const point = (c: number) => String(c % 9 * 100 + 50) + ',' + String(Math.floor(c / 9) * 100 + 50);
   const bulbs = displayBulbs(p, values, known);
-  return p.thermos.map((t, i) => '<g><polyline points="' + t.map(point).join(' ') + '"/>' + (bulbs[i] === null ? '' : '<circle cx="' + (bulbs[i]! % 9 * 100 + 50) + '" cy="' + (Math.floor(bulbs[i]! / 9) * 100 + 50) + '" r="34"/>') + '</g>').join('');
+  const seen = new Set<number>();
+  const showBulb = (c: number | null) => { if (c === null || seen.has(c)) return false; seen.add(c); return true; };
+  return p.thermos.map((t, i) => '<g><polyline points="' + t.map(point).join(' ') + '"/>' + (!showBulb(bulbs[i]) ? '' : '<circle cx="' + (bulbs[i]! % 9 * 100 + 50) + '" cy="' + (Math.floor(bulbs[i]! / 9) * 100 + 50) + '" r="34"/>') + '</g>').join('');
 }
 
 export function bulbHighlight(frame: Frame | null | undefined, cell: number): string {

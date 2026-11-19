@@ -29,6 +29,10 @@ try {
   puzzle.values = [...puzzle.givens];
 } catch { /* Storage is optional. */ }
 
+let branchingPreference = puzzle.branching ?? false;
+try { const saved = localStorage.getItem('thermo-generate-branching'); if (saved !== null) branchingPreference = saved === 'true'; } catch { /* Optional storage. */ }
+const generationOptions = () => ({ ...puzzle, branching: branchingPreference });
+
 let lengthsText = puzzle.thermoLengths?.join(',') ?? '';
 let lengthsError: string | null = null;
 
@@ -104,6 +108,8 @@ function replace(next: Puzzle) {
 }
 const visibleValues = () => slide !== null && report ? report.analysis.frames[slide].values : revealed && solution ? solution : puzzle.givens;
 function render() {
+  $<HTMLInputElement>('#branching').checked = branchingPreference;
+  $<HTMLInputElement>('#branching').disabled = !!busy;
   const values = visibleValues(), bad = conflicts({ ...puzzle, values });
   const frame = slide !== null ? report?.analysis.frames[slide] : null;
   const reasonCells = new Set([...(frame?.relatedCells ?? []), ...(frame?.strictInequalities?.flat() ?? [])]);
@@ -136,7 +142,7 @@ function render() {
   $<HTMLButtonElement>('#copy-image').disabled = !!busy || slide !== null;
   $('#walkthrough').hidden = !report || slide !== null;
   $('#generation-stats').hidden = !report;
-  const invalid = lengthsError ?? generationError(puzzle.variant, puzzle);
+  const invalid = lengthsError ?? generationError(puzzle.variant, generationOptions());
   $('#generation-error').textContent = invalid ?? '';
   const lengthsInput = $<HTMLInputElement>('#thermo-lengths');
   if (lengthsInput.value !== lengthsText) lengthsInput.value = lengthsText;
@@ -171,9 +177,14 @@ $('#thermo-lengths').oninput = e => {
   lengthsError = lengthsText.trim() && !/^\s*\d+\s*(,\s*\d+\s*)*$/.test(lengthsText) ? 'Enter whole-number lengths separated by commas, for example 4,4,4,5.' : null;
   if (!lengthsError) {
     puzzle.thermoLengths = lengthsText.trim() ? lengthsText.split(',').map(Number) : undefined;
-    if (!generationError(puzzle.variant, puzzle)) save();
+    if (!generationError(puzzle.variant, generationOptions())) save();
   }
   render();
+};
+$('#branching').onchange = e => {
+  branchingPreference = (e.target as HTMLInputElement).checked;
+  try { localStorage.setItem('thermo-generate-branching', String(branchingPreference)); } catch { /* Optional storage. */ }
+  message('Generation options updated.', 'Branching applies to your next generated puzzle.'); render();
 };
 for (const [id, key] of Object.entries(settings)) $<HTMLInputElement>(`#${id}`).onchange = e => {
   puzzle[key] = (e.target as HTMLInputElement).checked; save(); message('Generation options updated.', 'These settings apply when you generate your next puzzle.'); render();
@@ -190,7 +201,7 @@ window.addEventListener('keydown', e => {
   if (e.key in moves) { e.preventDefault(); selected = (selected + moves[e.key] + 81) % 81; render(); cells[selected].focus(); }
 });
 function run(type: 'check' | 'solve' | 'generate') {
-  if (busy || (type === 'generate' && (lengthsError || generationError(puzzle.variant, puzzle)))) return;
+  if (busy || (type === 'generate' && (lengthsError || generationError(puzzle.variant, generationOptions())))) return;
   busy = type;
   if (type === 'generate') { generationStarted = performance.now(); generationElapsed = 0; generationTimer = setInterval(updateElapsed, 100); }
   render(); worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
@@ -218,7 +229,7 @@ function run(type: 'check' | 'solve' | 'generate') {
     }
     render();
   };
-  worker.postMessage({ type, puzzle: { ...puzzle, values: [...puzzle.givens] } });
+  worker.postMessage({ type, puzzle: { ...(type === 'generate' ? generationOptions() : puzzle), values: [...puzzle.givens] } });
 }
 function confirmChange(title: string, action: () => void) {
   $('#confirm-title').textContent = title; $<HTMLDialogElement>('#confirm').showModal();
@@ -273,7 +284,7 @@ $('#copy-string').onclick = async () => {
 };
 function transfer(exporting: boolean) {
   $('#transfer-title').textContent = exporting ? 'Export puzzle' : 'Import puzzle';
-  $('#transfer-help').textContent = exporting ? 'Includes givens, thermometer paths, and generation preferences. Revealing the solution never changes the exported puzzle.' : 'Paste a TS1 puzzle string or a Thermo Sudoku JSON puzzle. Import replaces the current puzzle.';
+  $('#transfer-help').textContent = exporting ? 'Includes givens, thermometer paths, and generation preferences. Revealing the solution never changes the exported puzzle.' : 'Paste a TS1 or TS2 puzzle string or a Thermo Sudoku JSON puzzle. Import replaces the current puzzle.';
   $<HTMLTextAreaElement>('#puzzle-json').value = exporting ? JSON.stringify(puzzle, null, 2) : '';
   $<HTMLTextAreaElement>('#puzzle-json').readOnly = exporting;
   $('#load-json').hidden = exporting; $('#download').hidden = !exporting; $('#import-error').textContent = '';
@@ -281,7 +292,7 @@ function transfer(exporting: boolean) {
 }
 $('#import').onclick = () => transfer(false); $('#export').onclick = () => transfer(true);
 $('#load-json').onclick = () => {
-  try { replace($<HTMLTextAreaElement>('#puzzle-json').value.trim().startsWith('TS1|') ? decodePuzzle($<HTMLTextAreaElement>('#puzzle-json').value) : validatePuzzle(JSON.parse($<HTMLTextAreaElement>('#puzzle-json').value))); $<HTMLDialogElement>('#transfer').close(); message('Puzzle imported.', 'Check the puzzle or reveal its solution.'); render(); }
+  try { replace($<HTMLTextAreaElement>('#puzzle-json').value.trim().match(/^TS[12]\|/) ? decodePuzzle($<HTMLTextAreaElement>('#puzzle-json').value) : validatePuzzle(JSON.parse($<HTMLTextAreaElement>('#puzzle-json').value))); $<HTMLDialogElement>('#transfer').close(); message('Puzzle imported.', 'Check the puzzle or reveal its solution.'); render(); }
   catch (e) { $('#import-error').textContent = e instanceof Error ? e.message : 'Invalid puzzle JSON.'; }
 };
 $('#download').onclick = () => download(new Blob([JSON.stringify(puzzle, null, 2)], { type: 'application/json' }), 'thermo-sudoku.json');

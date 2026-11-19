@@ -1,4 +1,4 @@
-import { blank, validatePuzzle, type Puzzle } from './puzzle';
+import { blank, sharedBulb, validatePuzzle, type Puzzle } from './puzzle';
 import { compileConstraints, createUniquenessChecker, validCompletion } from './fast-solver';
 import { fillCells } from './generator';
 import { emptyGrid } from './vendor/sudokui/board';
@@ -11,15 +11,16 @@ export interface CustomBuildResult { puzzle: Puzzle; solution: number[]; analysi
 export function buildCustom(input: Puzzle, progress: (text: string) => void = () => {}, random = Math.random, budgetMs = 30_000): CustomBuildResult {
   const layout = validatePuzzle(input);
   if (!layout.thermos.length) throw new Error('Place at least one thermometer before building.');
-  if (layout.noGivens && layout.variant === 'missing') throw new Error('Missing Thermometer needs given cells: without them, complementing every digit produces another solution. Turn off No given cells or choose another variant.');
+  if (layout.noGivens && layout.variant === 'missing' && !layout.thermos.some(t => sharedBulb(layout.thermos, t, layout.branching))) throw new Error('Missing Thermometer needs given cells: without them, complementing every digit produces another solution. Turn off No given cells or choose another variant.');
   const puzzle = blank(layout.variant);
   puzzle.thermos = layout.thermos.map(path => [...path]);
   puzzle.symmetricThermos = false; puzzle.symmetricGivens = false;
   puzzle.noOverlap = false; puzzle.noThermoGivens = false; puzzle.logicalOnly = layout.logicalOnly ?? true;
+  puzzle.branching = layout.branching ?? false;
   puzzle.noGivens = layout.noGivens ?? false;
   const deadline = performance.now() + budgetMs;
   const timeout = () => new Error('Build time limit reached. Try Build again or adjust your thermometers. Your layout is unchanged.');
-  const constraints = compileConstraints(puzzle.thermos, puzzle.variant);
+  const constraints = compileConstraints(puzzle.thermos, puzzle.variant, puzzle.branching);
   if (puzzle.variant === 'slow' && !constraints.repeats.length) throw new Error('Slow Thermo needs an equal consecutive pair. Add a step between cells that do not share a row, column, or box.');
   progress('Finding a completed Sudoku for your exact thermometer layout…');
   const cells = Array.from({ length: 81 }, (_, i) => i);
@@ -29,7 +30,7 @@ export function buildCustom(input: Puzzle, progress: (text: string) => void = ()
     throw new Error('These thermometers cannot form a valid puzzle. Adjust the paths and try again.');
   }
   const solution = [...complete.values];
-  if (!validCompletion(solution, puzzle.thermos, puzzle.variant)) throw new Error('Could not verify the completed grid.');
+  if (!validCompletion(solution, puzzle.thermos, puzzle.variant, puzzle.branching)) throw new Error('Could not verify the completed grid.');
   puzzle.givens = puzzle.noGivens ? Array(81).fill(0) : [...solution];
   const checker = createUniquenessChecker(puzzle, solution);
   // Prefer blank thermometer cells, without rejecting a user's fixed layout if

@@ -41,7 +41,7 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   Walkthroughs reveal each bulb only when its direction is established.
   **Bulb finding** is exclusive to this variant and adds 10 points per recorded
   placement (including trial branches); its step links appear in the tallies.
-  Paths have at most 9 cells. No-givens generation is unavailable because digit
+  Paths have at most 9 cells. Without shared-bulb branches, no-givens generation is unavailable because digit
   complementation produces a second solution. Generate and Simulation both
   offer this category, and About contains its rules.
 - **Generate puzzle:** follows the six-stage layout-first process below.
@@ -66,10 +66,11 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   by default. Every thermometer has a rotated counterpart with the bulb in the
   corresponding position and the same path direction. Digit values need not
   be symmetric. Clue-position symmetry is mandatory in the prescribed workflow.
-- **No overlapping or branching thermometers:** mandatory for now. Prevents
+- **No overlapping thermometers by default:** prevents
   shared cells, shared bulbs, branching and diagonal crossings, including
   self-crossings. Legacy exclusion/overlap/clue-symmetry toggles no longer override
-  the new generation workflow; imported puzzles remain readable.
+  the new generation workflow; imported puzzles remain readable. Enable Branching
+  thermometers to allow shared bulbs as described below.
 - Select exactly 1–30 thermometers and a minimum length of 2–14 cells, including
   the bulb (defaults: 6 thermometers, minimum 3 cells). Strict Thermo permits
   at most 9 cells. Rotational symmetry requires an even count; non-overlapping
@@ -106,6 +107,34 @@ and produces a static website in `dist`. `npm test` runs the solver tests.
   uses across the entire solve, including failed trials; rollbacks are also reported.
   Imported puzzle walkthroughs show the same tallies.
 
+## Branching thermometers
+
+Enable **Branching thermometers (shared bulb)** in Generate, Simulation, or Custom
+Build. It is off by default. Each branch obeys its variant's rule independently;
+digits on separate branches have no extra ordering relationship beyond Sudoku.
+Generate and Simulation group two or three branches at each bulb and keep their
+other cells disjoint. Exact lengths count branch paths, including the shared bulb.
+Choose at least two paths, or four with rotational symmetry; the existing paired
+length requirements still apply to rotational symmetry.
+
+In Custom Build, enable branching and use **Add branch** beside a placed path.
+This selects its bulb as the new starting cell; draw the branch and choose
+**Finish thermo**. Paths with the same starting endpoint form one shared-bulb
+group. Removing a branch keeps the remaining paths. Turning branching off keeps
+the geometry but treats paths independently again.
+
+For Missing Thermometer, all paths in a shared-bulb group increase away from their
+common starting endpoint. The bulb is hidden on puzzle images and revealed in the
+walkthrough as one shared bulb; branches cannot independently choose tip bulbs.
+Standalone paths still permit either end. A shared-bulb group can therefore break
+the digit-complement ambiguity and may allow No given cells, subject to uniqueness
+and logical-only checks. Rotationally symmetric clue-free generation remains
+unavailable. Shared bulbs are drawn once, including PNG exports.
+
+JSON preserves the `branching` flag. Branched puzzle strings use `TS2` with the
+same fields as TS1; TS2 tells the importer to enforce shared starting bulbs.
+Existing TS1 strings and JSON without the flag keep their previous rules.
+
 ## Custom Build page
 
 Open **Custom Build** from the header dropdown (`?page=custom-build`). Choose
@@ -141,8 +170,8 @@ Changing the option applies to the next build, without changing the current puzz
 Build checks whether your exact thermometers determine a unique Sudoku with zero
 clues; it never adds clues or changes paths to satisfy this option. Nonunique
 layouts are reported so you can adjust them. Logical-only certification still
-applies when selected. Missing Thermometer requires givens and is rejected with
-this option because digit complementation always produces another solution.
+applies when selected. Missing Thermometer without shared-bulb branches requires givens and is rejected
+with this option because digit complementation produces another solution.
 
 ## Simulation page
 

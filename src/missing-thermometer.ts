@@ -18,16 +18,17 @@ function increasing(domains: number[]): number[] | null {
   }
   return support.every(Boolean) ? support : null;
 }
-export function missingSupports(domains: ArrayLike<number>, path: number[]) {
+export function missingSupports(domains: ArrayLike<number>, path: number[], shared = false) {
   const masks = path.map(c => domains[c]);
   const forward = increasing(masks);
-  const reverse = increasing([...masks].reverse())?.reverse() ?? null;
+  const reverse = shared ? null : increasing([...masks].reverse())?.reverse() ?? null;
   return { forward, reverse, union: masks.map((_, i) => (forward?.[i] ?? 0) | (reverse?.[i] ?? 0)) };
 }
 export function gridDomains(g: Grid): number[] {
   return Array.from(g.values, (v, c) => v ? bit(v) : g.cands[c]);
 }
-export function bulbFindingDescription(path: number[], cell: number, index: number): string {
+export function bulbFindingDescription(path: number[], cell: number, index: number, shared = false): string {
+  if (shared) return `Thermometer ${index + 1}: the branches share one hidden bulb at ${cellName(cell)}. Each branch increases away from this shared endpoint; separate bulbs at the tips would violate the shared-bulb rule.`;
   const other = cell === path[0] ? path.at(-1)! : path[0];
   return `Thermometer ${index + 1}: place the bulb at ${cellName(cell)}. Starting at ${cellName(other)} cannot form a strictly increasing sequence using the current digits and candidates; only the direction from ${cellName(cell)} to ${cellName(other)} remains possible. The green outlined cell is the bulb, the red dashed cell is the ruled-out end, and the connecting path is highlighted.`;
 }
